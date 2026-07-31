@@ -1,5 +1,7 @@
 # Bank Multi-Agent AI Analyst
 
+[![CI](https://github.com/elnurruzmanov/multi-agent-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/elnurruzmanov/multi-agent-analyst/actions/workflows/ci.yml)
+
 Multi-agent AI Analyst capstone (F1–F14) — **written from scratch**, with a
 banking twist: the analyst answers questions about **digital-banking churn**.
 The SQL agent queries a synthetic SQB-style customers database and the
