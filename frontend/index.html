@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bank Multi-Agent AI Analyst</title>
+  <meta name="description" content="Multi-agent AI analyst for digital-banking churn: a supervisor routes questions to retriever, SQL, code and web agents, and a critic reviews every answer. Uzbek, Russian and English." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">🏦</span>
+      <div>
+        <strong>Bank Multi-Agent AI Analyst</strong>
+        <span class="brand-sub" id="brand-sub"></span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span class="status" id="status"></span>
+      <div class="lang" id="lang" role="group" aria-label="Language"></div>
+      <button type="button" id="theme" class="icon-btn" aria-label="Toggle colour theme">◐</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ————————————————— Ask the analyst ————————————————— -->
+  <section class="panel ask" aria-labelledby="ask-h">
+    <div class="panel-head">
+      <h2 id="ask-h"></h2>
+      <p class="panel-sub" id="ask-sub"></p>
+    </div>
+
+    <div class="pipeline" id="pipeline" aria-label="Agent pipeline">
+      <span class="node" data-agent="supervisor">supervisor</span>
+      <span class="arrow" aria-hidden="true">→</span>
+      <span class="node" data-agent="retriever">retriever</span>
+      <span class="node" data-agent="data">data</span>
+      <span class="node" data-agent="code">code</span>
+      <span class="node" data-agent="web">web</span>
+      <span class="arrow" aria-hidden="true">→</span>
+      <span class="node" data-agent="critic">critic</span>
+    </div>
+
+    <div class="examples" id="examples"></div>
+
+    <div class="chat" id="chat" aria-live="polite"></div>
+
+    <form class="composer" id="composer">
+      <input id="question" type="text" maxlength="500" autocomplete="off" required />
+      <button type="submit" id="send"></button>
+    </form>
+  </section>
+
+  <!-- ————————————————— Portfolio ————————————————— -->
+  <section aria-labelledby="kpi-h">
+    <div class="section-head">
+      <h2 id="kpi-h"></h2>
+      <p class="section-sub" id="kpi-sub"></p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <!-- ————————————————— Charts ————————————————— -->
+  <section aria-labelledby="drivers-h">
+    <div class="section-head">
+      <h2 id="drivers-h"></h2>
+      <p class="section-sub" id="drivers-sub"></p>
+    </div>
+    <div class="grid" id="charts"></div>
+  </section>
+</main>
+
+<footer>
+  <a href="https://github.com/elnurruzmanov/multi-agent-analyst" id="source-link"></a>
+  <span aria-hidden="true">·</span>
+  <span>Elnur Ruzmanov</span>
+</footer>
+
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<script src="./i18n.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

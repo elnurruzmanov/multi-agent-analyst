@@ -1,0 +1,26 @@
+# Render blueprint — deploys the FastAPI backend.
+# The build step rebuilds the sample database and the Qdrant document index,
+# because Render's free instances have an ephemeral filesystem.
+services:
+  - type: web
+    name: multi-agent-analyst-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: |
+      pip install -r requirements.txt
+      python db/init_db.py
+      python ingestion.py
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Set a real key in the Render dashboard to leave mock mode.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      # Lock this down to your Vercel domain once the frontend is deployed.
+      - key: ALLOWED_ORIGINS
+        value: "*"

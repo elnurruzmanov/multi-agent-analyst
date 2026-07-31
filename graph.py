@@ -7,6 +7,7 @@ memory stores past Q&A and is injected into drafting context.
 """
 
 import sys
+from functools import lru_cache
 
 from langgraph.graph import END, StateGraph
 
@@ -46,6 +47,7 @@ def node_critic(s: AgentState) -> AgentState:
             "critic_issues": r["issues"], "answer": d, "steps": steps}
 
 
+@lru_cache(maxsize=2)
 def build_graph(use_critic: bool = True):
     g = StateGraph(AgentState)
     g.add_node("supervisor", node_supervisor)

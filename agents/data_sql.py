@@ -12,10 +12,24 @@ import sys
 import config
 
 DB = os.path.join(os.path.dirname(__file__), "..", "db", "bank.db")
-SCHEMA = """Table customers(client_id TEXT, age_group TEXT, region TEXT,
-segment TEXT, platform TEXT, tenure_months INT, avg_monthly_logins REAL,
-avg_p2p_count REAL, failed_tx_total INT, support_tickets_total INT,
-churned INT (1=left), churn_quarter TEXT e.g. 'Q1-2026')"""
+SCHEMA = """Table customers (1000 rows, one per retail-banking customer):
+  client_id            TEXT   'C100000'…'C100999'
+  age_group            TEXT   '18-24' | '25-34' | '35-44' | '45-54' | '55+'
+  region               TEXT   'Toshkent' | 'Samarqand' | 'Qashqadaryo' | "Farg'ona" | 'Boshqa'
+  segment              TEXT   'retail' | 'premium'
+  platform             TEXT   'Android' | 'iOS'
+  tenure_months        INT    1..60, months since the customer joined
+  avg_monthly_logins   REAL   average logins per month
+  avg_p2p_count        REAL   average person-to-person transfers per month
+  failed_tx_total      INT    0..5, lifetime failed transactions
+  support_tickets_total INT   0..4, lifetime support tickets
+  churned              INT    1 = left (no login for 90+ days), 0 = active
+  churn_quarter        TEXT   'Q4-2025' | 'Q1-2026' | 'Q2-2026', empty '' when still active
+
+Guidance:
+- "churn rate" means 100.0 * SUM(churned) / COUNT(*) — always ROUND(…, 1).
+- Group and compare rather than returning raw rows; add ORDER BY so the top result is first.
+- Region names are Uzbek; match them exactly as spelled above."""
 
 FORBIDDEN = re.compile(r"\b(insert|update|delete|drop|alter|create|attach|pragma|replace)\b", re.I)
 
@@ -29,7 +43,8 @@ def run(question: str) -> str:
     if not os.path.exists(DB):
         return "Database not found. Run `python db/init_db.py` first."
     sql = config.extract_code(config.llm(
-        f"Write SQL (SQLite, one SELECT only, no comments) for: {question}\nSchema: {SCHEMA}\nReturn only the SQL."
+        f"Write SQL (SQLite, one SELECT only, no comments, no semicolon) for: {question}\n\n"
+        f"{SCHEMA}\n\nReturn only the SQL."
     )).removeprefix("sql").strip()
     if not safe(sql):
         return f"REJECTED unsafe SQL: {sql}"

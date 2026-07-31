@@ -6,4 +6,4 @@ qdrant_data/
 memory.json
 db/bank.db
 evaluation/eval_results*.csv
-.claude/
+.claude/settings.local.json

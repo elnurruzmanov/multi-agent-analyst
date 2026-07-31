@@ -1,0 +1,3 @@
+# Local Gradio UI (app_gradio.py) — not needed by the deployed backend.
+-r requirements.txt
+gradio>=4.40

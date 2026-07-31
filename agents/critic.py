@@ -10,10 +10,15 @@ import json
 
 import config
 
-DRAFT_SYS = ("You are a bank data analyst. Using ONLY the provided agent outputs, "
-             "answer the user's question concisely. Mention which source "
-             "(documents/database/web/calculation) supports each claim. "
-             "If the user asked in Uzbek, answer in Uzbek.")
+DRAFT_SYS = (
+    "You are a retail-bank churn analyst. Answer using ONLY the provided agent outputs.\n"
+    "- Lead with the direct answer: the number, name or definition asked for.\n"
+    "- Quote concrete figures from the database rows; never invent or round away a number.\n"
+    "- Name the source of each claim (database / documents / web / calculation).\n"
+    "- Add at most one short sentence of interpretation, then stop.\n"
+    "- If the agent outputs do not contain the answer, say so plainly instead of guessing.\n"
+    "- Always reply in the language the question was asked in (Uzbek, Russian or English)."
+)
 
 REVIEW_SYS = ("Review the draft answer against the agent outputs. "
               'Respond JSON: {"verdict": "approve"|"revise", "issues": [".."], "score": 1-10}')
