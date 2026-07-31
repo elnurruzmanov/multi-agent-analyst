@@ -1,0 +1,12 @@
+[
+  {"q": "How many customers churned in total?", "expect_agent": "data", "must_contain": "259"},
+  {"q": "How many customers churned in Q1-2026?", "expect_agent": "data", "must_contain": "SQL"},
+  {"q": "Churn ta'rifi nima?", "expect_agent": "retriever", "must_contain": "90"},
+  {"q": "What are the early warning signs of churn?", "expect_agent": "retriever", "must_contain": ""},
+  {"q": "Qaysi regionda churn eng ko'p?", "expect_agent": "data", "must_contain": ""},
+  {"q": "What retention actions does the playbook recommend for technical issues?", "expect_agent": "retriever", "must_contain": ""},
+  {"q": "What is the average monthly logins of churned vs active customers?", "expect_agent": "data", "must_contain": ""},
+  {"q": "Calculate 15% of 2600", "expect_agent": "code", "must_contain": "390"},
+  {"q": "Latest digital banking churn trends on the web", "expect_agent": "web", "must_contain": ""},
+  {"q": "Which product modules does SQB Mobile have?", "expect_agent": "retriever", "must_contain": ""}
+]
