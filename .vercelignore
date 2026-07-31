@@ -1,0 +1,11 @@
+# Only frontend/ is deployed to Vercel; the Python backend lives on Render.
+# Keeping the Python files out of the upload also stops Vercel's framework
+# detection from mistaking api.py for the project's entrypoint.
+*.py
+agents/
+db/
+evaluation/
+tests/
+data/
+requirements*.txt
+render.yaml
