@@ -91,19 +91,8 @@ def _mock_llm(prompt: str, system: str, json_mode: bool) -> str:
     """Deterministic canned behaviour so the full graph runs offline."""
     text = (system + "\n" + prompt).lower()
     if "route" in text and json_mode:
-        q = text.split("route this question:")[-1]
-        if any(w in q for w in ["how many", "count", "average", "sql", "necha", "qancha",
-                                "eng ko'p", "сколько", "средн", "больше всего"]):
-            agent = "data"
-        elif any(w in q for w in ["trend", "news", "internet", "web", "yangilik",
-                                  "тренд", "новост"]):
-            agent = "web"
-        elif any(w in q for w in ["calculate", "percent", "%", "hisobla",
-                                  "посчита", "вычисли", "процент"]):
-            agent = "code"
-        else:
-            agent = "retriever"
-        return json.dumps({"agents": [agent], "reason": "mock routing"})
+        return json.dumps({"agents": [_mock_route(text.split("route this question:")[-1])],
+                           "reason": "mock routing"})
     if "review the draft" in text and json_mode:
         return json.dumps({"verdict": "approve", "issues": [], "score": 8})
     if "write sql" in text:
@@ -151,6 +140,35 @@ _MOCK_SQL_RULES = [
 
 
 _PERCENT_WORDS = ("%", "percent", "foiz", "процент")
+
+_AGGREGATE_WORDS = ("how many", "count", "average", "avg", "sql", "highest", "lowest",
+                    "necha", "qancha", "eng ko'p", "eng kam", "o'rtacha",
+                    "сколько", "средн", "больше всего", "меньше всего")
+_WEB_WORDS = ("trend", "news", "internet", "web", "yangilik", "тренд", "новост")
+_CALC_WORDS = ("calculate", "hisobla", "посчита", "вычисли")
+# Database entities: these mean "look it up in the table", not "do arithmetic".
+_ENTITY_WORDS = ("customer", "mijoz", "клиент", "region", "segment", "platform",
+                 "churn rate", "churned", "quarter", "chorak", "квартал")
+
+
+def _mock_route(question: str) -> str:
+    """Offline routing.
+
+    A bare '%' used to send everything to the code agent, so "what % of
+    customers churned?" went to the calculator instead of the database. The
+    calculator now needs an explicit verb, or a percentage over two numbers.
+    """
+    if any(w in question for w in _AGGREGATE_WORDS):
+        return "data"
+    if any(w in question for w in _WEB_WORDS):
+        return "web"
+    arithmetic = any(w in question for w in _PERCENT_WORDS) and \
+        len(re.findall(r"\d+", question)) >= 2
+    if any(w in question for w in _CALC_WORDS) or arithmetic:
+        return "code"
+    if any(w in question for w in _ENTITY_WORDS):
+        return "data"
+    return "retriever"
 
 
 def _mock_code(question: str) -> str:

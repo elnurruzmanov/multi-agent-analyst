@@ -117,14 +117,31 @@ Actions runs the same suite on every push.
 
 ## Deploy
 
-**Backend → Render.** New → *Blueprint*, pick this repo; `render.yaml` defines
-the service, rebuilds the database and the Qdrant index at build time (Render's
-free filesystem is ephemeral) and health-checks `/api/health`.
+Deploy the backend first — the frontend proxies `/api/*` to it, so a frontend
+without a backend loads but shows no data.
 
-**Frontend → Vercel.** Import the repo; `vercel.json` serves `frontend/` and
-rewrites `/api/*` to the Render service, so the browser only ever talks to one
-origin and there is no CORS to configure. Update the destination host in
-`vercel.json` if your Render service gets a different name.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/elnurruzmanov/multi-agent-analyst)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/elnurruzmanov/multi-agent-analyst)
+
+**Backend → Render.** The button reads `render.yaml`: it installs the
+dependencies, rebuilds the database and the Qdrant index at build time
+(Render's free filesystem is ephemeral) and health-checks `/api/health`.
+Doing it by hand instead — New → *Web Service* — needs:
+
+| Field | Value |
+|---|---|
+| Build command | `pip install -r requirements.txt && python db/init_db.py && python ingestion.py` |
+| Start command | `uvicorn api:app --host 0.0.0.0 --port $PORT` |
+| Health check path | `/api/health` |
+
+**Frontend → Vercel.** `vercel.json` serves `frontend/` and rewrites `/api/*`
+to the Render service, so the browser only ever talks to one origin and there
+is no CORS to configure. If your Render service ends up on a hostname other
+than `multi-agent-analyst-api.onrender.com`, change the `destination` in
+`vercel.json` to match.
+
+Run one uvicorn worker only: embedded Qdrant lets a single process hold
+`qdrant_data/`, so a second worker would fail on a storage lock.
 
 Free-tier Render services sleep when idle, so the first request after a quiet
 period takes about 50 seconds — the UI says so while it waits.

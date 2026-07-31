@@ -9,6 +9,31 @@ import graph
 from agents import code_agent, data_sql
 
 
+import pytest
+
+ROUTING_CASES = [
+    ("Calculate 15% of 2600", "code"),
+    ("what is 17% of 340?", "code"),
+    ("2600 ning 15 foizini hisobla", "code"),
+    ("Посчитай 15% от 2600", "code"),
+    # A bare '%' used to hijack these into the calculator.
+    ("what % of customers churned?", "data"),
+    ("mijozlarning necha foizi churn bo'ldi?", "data"),
+    ("qaysi regionda churn eng ko'p?", "data"),
+    ("how many customers churned in Q1-2026?", "data"),
+    ("в каком регионе больше всего оттока?", "data"),
+    ("churn ta'rifi nima?", "retriever"),
+    ("what are the early warning signs of churn?", "retriever"),
+    ("which product modules does SQB Mobile have?", "retriever"),
+    ("latest digital banking churn trends on the web", "web"),
+]
+
+
+@pytest.mark.parametrize("question,expected", ROUTING_CASES)
+def test_mock_router_picks_the_right_agent(question, expected):
+    assert config._mock_route(question.lower()) == expected
+
+
 def test_mock_sql_follows_the_dimension_asked_about():
     assert "GROUP BY region" in config._mock_sql("qaysi regionda churn eng ko'p?")
     assert "GROUP BY segment" in config._mock_sql("premium vs retail churn?")
