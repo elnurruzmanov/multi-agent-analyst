@@ -396,6 +396,83 @@
   .reveal.in{ opacity:1; transform:translateY(0); }
 
   :focus-visible{ outline:2px solid var(--ember); outline-offset:3px; }
+
+  /* BOOKING MODAL — tel: links do nothing on desktop, so show the number instead */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:200;
+    background:rgba(10,9,8,0.82);
+    backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    padding:1.2rem;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .modal-overlay.open{ opacity:1; pointer-events:auto; }
+  .modal-overlay[hidden]{ display:none; }
+  .modal{
+    position:relative;
+    width:min(420px,100%);
+    background:linear-gradient(155deg, var(--iron) 0%, var(--iron-2) 60%, var(--bg-2) 100%);
+    border:1px solid var(--line);
+    padding:2.4rem 2rem 2rem;
+    text-align:center;
+    transform:translateY(14px) scale(.98);
+    transition:transform .25s ease;
+  }
+  .modal-overlay.open .modal{ transform:translateY(0) scale(1); }
+  .modal::before{
+    content:"";
+    position:absolute; top:-45%; right:-25%;
+    width:70%; height:150%;
+    background:radial-gradient(circle, rgba(255,90,31,0.16), transparent 65%);
+    pointer-events:none;
+  }
+  .modal > *{ position:relative; }
+  .modal h3{ font-size:2rem; color:var(--bone); margin:0.5rem 0 0.6rem; }
+  .modal p.modal-sub{ color:var(--bone-dim); font-size:0.88rem; font-weight:300; line-height:1.55; }
+  .modal-phone{
+    display:block;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:clamp(1.9rem,7vw,2.5rem);
+    letter-spacing:0.04em;
+    color:var(--ember);
+    margin:1.6rem 0 0.4rem;
+    padding:0.9rem 0.6rem;
+    border:1px solid var(--ember);
+    background:rgba(255,90,31,0.06);
+    transition:background .2s, color .2s;
+  }
+  .modal-phone:hover{ background:var(--ember); color:#0a0908; }
+  .modal-actions{ display:grid; gap:0.6rem; margin-top:1.2rem; }
+  .modal-btn{
+    font-family:'Oswald',sans-serif;
+    font-size:0.82rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:0.85rem 1rem;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--bone);
+    cursor:pointer;
+    transition:border-color .2s, background .2s, color .2s;
+  }
+  .modal-btn:hover{ border-color:var(--bone-dim); background:rgba(255,255,255,0.04); }
+  .modal-btn.tg:hover{ border-color:var(--ember); color:var(--ember-2); }
+  .modal-close{
+    position:absolute; top:0.7rem; right:0.9rem;
+    background:none; border:none; cursor:pointer;
+    color:var(--bone-dim); font-size:1.5rem; line-height:1;
+    padding:0.2rem 0.4rem;
+    transition:color .2s;
+  }
+  .modal-close:hover{ color:var(--bone); }
+  .modal-hint{
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.66rem; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--bone-dim); margin-top:1.2rem;
+    min-height:1em;
+  }
+  .modal-hint.done{ color:var(--ember-2); }
 </style>
 </head>
 <body>
@@ -408,7 +485,7 @@
     <a href="#sodiqlik">Sodiqlik</a>
     <a href="#aloqa">Aloqa</a>
   </div>
-  <a href="tel:+998914556235" class="nav-cta">Joy band qilish</a>
+  <a href="tel:+998914556235" class="nav-cta" data-book>Joy band qilish</a>
 </nav>
 
 <header class="hero">
@@ -417,7 +494,7 @@
   <h1>KIR<br>ARENA<span class="accent">GA</span></h1>
   <p class="hero-sub">Gladiator — bu shunchaki o'yin zali emas. Bu yerda har bir raund jang, har bir g'alaba sharaf. PS5 stansiyalar, 4K ekranlar va jamoangiz bilan haqiqiy raqobat muhiti.</p>
   <div class="hero-actions">
-    <a href="tel:+998914556235" class="btn-primary">Hoziroq joy band qiling</a>
+    <a href="tel:+998914556235" class="btn-primary" data-book>Hoziroq joy band qiling</a>
     <a href="#narxlar" class="btn-ghost">Narxlarni ko'rish</a>
   </div>
   <div class="hero-stats">
@@ -595,6 +672,21 @@
   <div class="footer-credit">Sayt Elnur tomonidan yaratildi</div>
 </footer>
 
+<div class="modal-overlay" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle" hidden>
+  <div class="modal">
+    <button class="modal-close" type="button" aria-label="Yopish">&times;</button>
+    <div class="eyebrow">Joy band qilish</div>
+    <h3 id="bookTitle">Bizga qo'ng'iroq qiling</h3>
+    <p class="modal-sub">Raqamga qo'ng'iroq qiling yoki Telegram orqali yozing — joyingizni darhol band qilamiz.</p>
+    <a class="modal-phone" href="tel:+998914556235">+998 91 455 62 35</a>
+    <div class="modal-actions">
+      <button class="modal-btn" type="button" id="copyPhone">Raqamdan nusxa olish</button>
+      <a class="modal-btn tg" href="https://t.me/gladiator_gaming" target="_blank" rel="noopener">Telegram orqali yozish</a>
+    </div>
+    <div class="modal-hint" id="bookHint" role="status"></div>
+  </div>
+</div>
+
 <script>
   const io = new IntersectionObserver((entries)=>{
     entries.forEach(e=>{
@@ -602,6 +694,56 @@
     });
   }, {threshold:0.12});
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  (function(){
+    const PHONE = '+998914556235';
+    const overlay = document.getElementById('bookModal');
+    const hint = document.getElementById('bookHint');
+    const closeBtn = overlay.querySelector('.modal-close');
+    const phoneLink = overlay.querySelector('.modal-phone');
+    let lastFocused = null;
+
+    function open(){
+      lastFocused = document.activeElement;
+      overlay.hidden = false;
+      requestAnimationFrame(()=>overlay.classList.add('open'));
+      hint.textContent = '';
+      hint.classList.remove('done');
+      phoneLink.focus();
+    }
+    function close(){
+      overlay.classList.remove('open');
+      setTimeout(()=>{ overlay.hidden = true; }, 250);
+      if(lastFocused) lastFocused.focus();
+    }
+
+    document.querySelectorAll('[data-book]').forEach(el=>{
+      el.addEventListener('click', e=>{ e.preventDefault(); open(); });
+    });
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', e=>{ if(e.target === overlay) close(); });
+    document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && !overlay.hidden) close(); });
+
+    document.getElementById('copyPhone').addEventListener('click', async ()=>{
+      let ok = false;
+      try{
+        await navigator.clipboard.writeText(PHONE);
+        ok = true;
+      }catch(err){
+        const tmp = document.createElement('textarea');
+        tmp.value = PHONE;
+        tmp.setAttribute('readonly','');
+        tmp.style.position = 'fixed';
+        tmp.style.opacity = '0';
+        document.body.appendChild(tmp);
+        tmp.select();
+        try{ ok = document.execCommand('copy'); }catch(e2){ ok = false; }
+        document.body.removeChild(tmp);
+      }
+      hint.textContent = ok ? 'Nusxa olindi ✓' : 'Nusxa olinmadi — raqamni qo’lda belgilang';
+      hint.classList.toggle('done', ok);
+    });
+  })();
 </script>
 
 </body>
