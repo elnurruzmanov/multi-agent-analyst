@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLADIATOR — Gaming Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0908;
+    --bg-2: #14100d;
+    --iron: #221c17;
+    --iron-2: #2c2420;
+    --bone: #e9dfc9;
+    --bone-dim: #9c9280;
+    --ember: #ff5a1f;
+    --ember-2: #ff8a3d;
+    --blood: #b3121c;
+    --gold: #c99a3d;
+    --line: rgba(233,223,201,0.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--bone);
+    font-family:'Oswald',sans-serif;
+    overflow-x:hidden;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important;}
+  }
+
+  ::selection{ background:var(--ember); color:#0a0908; }
+
+  /* texture */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(255,90,31,0.08), transparent 55%),
+      radial-gradient(ellipse at 85% 20%, rgba(179,18,28,0.10), transparent 50%);
+    pointer-events:none;
+    z-index:0;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events:none;
+    z-index:1;
+    mix-blend-mode:overlay;
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--ember-2);
+  }
+
+  h1,h2,h3{
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:0.02em;
+    line-height:0.95;
+    text-transform:uppercase;
+  }
+
+  a{color:inherit; text-decoration:none;}
+
+  /* NAV */
+  nav{
+    position:fixed; top:0; left:0; right:0;
+    z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1.1rem clamp(1.2rem,4vw,3.5rem);
+    background:linear-gradient(to bottom, rgba(10,9,8,0.92), rgba(10,9,8,0));
+    backdrop-filter:blur(6px);
+  }
+  .brand{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.5rem;
+    letter-spacing:0.12em;
+    display:flex;
+    align-items:center;
+    gap:0.5rem;
+  }
+  .brand .bolt{color:var(--ember); font-size:1.1rem;}
+  .navlinks{
+    display:flex; gap:2.2rem;
+    font-size:0.82rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+  }
+  .navlinks a{
+    color:var(--bone-dim);
+    position:relative;
+    transition:color .25s;
+    padding-bottom:4px;
+  }
+  .navlinks a:hover, .navlinks a:focus-visible{color:var(--bone);}
+  .navlinks a::after{
+    content:"";
+    position:absolute; left:0; bottom:0;
+    width:0; height:1px;
+    background:var(--ember);
+    transition:width .3s;
+  }
+  .navlinks a:hover::after{width:100%;}
+  .nav-cta{
+    font-size:0.78rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    border:1px solid var(--ember);
+    padding:0.55rem 1.2rem;
+    color:var(--ember-2);
+    transition:all .25s;
+  }
+  .nav-cta:hover{background:var(--ember); color:#0a0908;}
+  @media (max-width:820px){ .navlinks{display:none;} }
+
+  /* HERO */
+  .hero{
+    position:relative;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:7rem clamp(1.2rem,4vw,3.5rem) 4rem;
+    z-index:2;
+  }
+  .hero-grid{
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black 30%, transparent 75%);
+    z-index:-1;
+  }
+  .hero .eyebrow{margin-bottom:1.2rem; display:flex; align-items:center; gap:0.6rem;}
+  .hero .eyebrow .dot{width:6px;height:6px;background:var(--ember); border-radius:50%; box-shadow:0 0 10px var(--ember);}
+  .hero h1{
+    font-size:clamp(3.4rem, 11vw, 8.5rem);
+    color:var(--bone);
+    text-shadow: 0 0 40px rgba(255,90,31,0.15);
+  }
+  .hero h1 .accent{
+    color:var(--ember);
+    -webkit-text-stroke:2px var(--ember);
+    -webkit-text-fill-color:transparent;
+  }
+  .hero-sub{
+    max-width:36rem;
+    font-size:1.05rem;
+    font-weight:300;
+    color:var(--bone-dim);
+    margin-top:1.4rem;
+    line-height:1.6;
+  }
+  .hero-actions{
+    display:flex; gap:1rem; flex-wrap:wrap;
+    margin-top:2.6rem;
+  }
+  .btn-primary{
+    background:var(--ember);
+    color:#0a0908;
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:0.92rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:1rem 2.1rem;
+    border:1px solid var(--ember);
+    transition:transform .2s, box-shadow .2s;
+    display:inline-block;
+  }
+  .btn-primary:hover{ transform:translateY(-2px); box-shadow:0 10px 30px rgba(255,90,31,0.25); }
+  .btn-ghost{
+    border:1px solid var(--line);
+    color:var(--bone);
+    font-size:0.92rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:1rem 2.1rem;
+    transition:border-color .2s, background .2s;
+  }
+  .btn-ghost:hover{ border-color:var(--bone-dim); background:rgba(255,255,255,0.03); }
+
+  .hero-stats{
+    display:flex; gap:clamp(1.5rem,4vw,3.5rem);
+    margin-top:4rem;
+    flex-wrap:wrap;
+    border-top:1px solid var(--line);
+    padding-top:1.8rem;
+  }
+  .stat-num{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:2.4rem;
+    color:var(--bone);
+  }
+  .stat-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.68rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--bone-dim);
+  }
+
+  section{ position:relative; z-index:2; padding:6rem clamp(1.2rem,4vw,3.5rem); }
+  .section-head{ margin-bottom:3rem; max-width:40rem; }
+  .section-head h2{ font-size:clamp(2.4rem,6vw,4rem); color:var(--bone); margin-top:0.6rem; }
+  .section-head p{ color:var(--bone-dim); font-weight:300; margin-top:1rem; line-height:1.6; }
+
+  /* ARENA MAP — signature element */
+  .arena{ background:var(--bg-2); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .arena-wrap{
+    position:relative;
+    max-width:900px;
+    margin:0 auto;
+    aspect-ratio:1/1;
+  }
+  .arena-ring{
+    position:absolute; inset:0;
+    border-radius:50%;
+    border:1px dashed var(--line);
+  }
+  .arena-ring.r2{ inset:12%; }
+  .arena-ring.r3{ inset:24%; border-style:solid; border-color:var(--line); }
+  .arena-center{
+    position:absolute; inset:38%;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,90,31,0.12), transparent 70%);
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    flex-direction:column;
+  }
+  .arena-center span.eyebrow{ margin-bottom:0.3rem; }
+  .arena-center strong{ font-family:'Bebas Neue'; font-size:1.6rem; color:var(--bone); }
+
+  .sector{
+    position:absolute;
+    width:150px;
+    padding:1rem 1.1rem;
+    background:var(--iron);
+    border:1px solid var(--line);
+    cursor:default;
+    transition:border-color .25s, transform .25s, background .25s;
+  }
+  .sector:hover{ border-color:var(--ember); transform:translateY(-3px); background:var(--iron-2); }
+  .sector .sec-num{ font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:var(--ember-2); letter-spacing:0.1em; }
+  .sector .sec-name{ font-family:'Oswald',sans-serif; font-weight:600; font-size:1rem; margin-top:0.3rem; color:var(--bone); }
+  .sector .sec-desc{ font-size:0.78rem; color:var(--bone-dim); margin-top:0.3rem; line-height:1.4; }
+
+  .sector.s1{ top:-2%; left:50%; transform:translateX(-50%); }
+  .sector.s2{ top:22%; right:-4%; }
+  .sector.s3{ bottom:22%; right:-4%; }
+  .sector.s4{ bottom:-2%; left:50%; transform:translateX(-50%); }
+  .sector.s5{ bottom:22%; left:-4%; }
+  .sector.s6{ top:22%; left:-4%; }
+
+  @media (max-width:760px){
+    .arena-wrap{ aspect-ratio:auto; }
+    .arena-ring, .arena-center{ display:none; }
+    .arena-map-mobile{ display:grid; gap:0.8rem; }
+    .sector{ position:static; width:auto; }
+  }
+  .arena-map-mobile{ display:none; }
+  @media (max-width:760px){ .arena-map-mobile{ display:grid; } }
+  @media (min-width:761px){ .arena-map-desktop{ display:block; } .arena-map-mobile{ display:none !important; } }
+  @media (max-width:760px){ .arena-map-desktop{ display:none; } }
+
+  /* PRICING */
+  .pricing-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .price-card{
+    background:var(--bg);
+    padding:2.2rem 1.8rem;
+    transition:background .25s;
+  }
+  .price-card:hover{ background:var(--iron); }
+  .price-card .eyebrow{ margin-bottom:0.8rem; }
+  .price-card .price{
+    font-family:'Bebas Neue';
+    font-size:2.8rem;
+    color:var(--bone);
+    margin:0.4rem 0 0.2rem;
+  }
+  .price-card .price span{ font-family:'JetBrains Mono'; font-size:0.9rem; color:var(--bone-dim); }
+  .price-card p.desc{ color:var(--bone-dim); font-size:0.85rem; font-weight:300; margin-top:0.6rem; line-height:1.5; }
+  .price-card.featured{ background:linear-gradient(160deg, rgba(255,90,31,0.08), transparent); position:relative; }
+  .price-card.featured::before{
+    content:"ENG MASHHUR";
+    position:absolute; top:1.2rem; right:1.2rem;
+    font-family:'JetBrains Mono'; font-size:0.6rem; letter-spacing:0.1em;
+    color:var(--ember-2); border:1px solid var(--ember); padding:0.2rem 0.5rem;
+  }
+
+  /* LOYALTY */
+  .loyalty{ display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; }
+  @media (max-width:820px){ .loyalty{ grid-template-columns:1fr; gap:2.5rem; } }
+  .stamp-card{
+    background:linear-gradient(155deg, var(--iron) 0%, var(--iron-2) 60%, var(--bg-2) 100%);
+    border:1px solid var(--line);
+    padding:2rem;
+    position:relative;
+    overflow:hidden;
+  }
+  .stamp-card::before{
+    content:"";
+    position:absolute; top:-40%; right:-20%;
+    width:60%; height:140%;
+    background:radial-gradient(circle, rgba(255,90,31,0.14), transparent 65%);
+  }
+  .stamp-card .eyebrow{ position:relative; }
+  .stamp-card h3{ font-size:2.4rem; color:var(--bone); margin:0.3rem 0 1.4rem; position:relative; }
+  .stamps{ display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; position:relative; }
+  .stamp{
+    aspect-ratio:1; border-radius:50%;
+    border:1px dashed var(--bone-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue'; font-size:1.1rem; color:var(--bone-dim);
+  }
+  .stamp.filled{
+    border:1px solid var(--ember);
+    background:var(--ember);
+    color:#0a0908;
+    box-shadow:0 0 16px rgba(255,90,31,0.4);
+  }
+  .loyalty-text .eyebrow{ margin-bottom:0.8rem; }
+  .loyalty-text h2{ font-size:clamp(2.2rem,5vw,3.2rem); color:var(--bone); }
+  .loyalty-text p{ color:var(--bone-dim); font-weight:300; margin-top:1rem; line-height:1.65; }
+  .loyalty-list{ margin-top:1.6rem; display:grid; gap:0.8rem; }
+  .loyalty-list li{ list-style:none; display:flex; gap:0.7rem; color:var(--bone); font-size:0.92rem; align-items:baseline; }
+  .loyalty-list li::before{ content:"—"; color:var(--ember); }
+
+  /* GALLERY / SETUP STRIP */
+  .strip{
+    display:flex; gap:1px; background:var(--line); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .strip-item{
+    flex:1; min-width:0;
+    background:var(--bg-2);
+    padding:2.4rem 1.6rem;
+    text-align:center;
+  }
+  .strip-item .num{ font-family:'JetBrains Mono'; font-size:0.7rem; color:var(--ember-2); letter-spacing:0.1em; }
+  .strip-item h4{ font-family:'Oswald'; font-weight:600; font-size:1.1rem; margin-top:0.6rem; color:var(--bone); }
+  .strip-item p{ font-size:0.8rem; color:var(--bone-dim); margin-top:0.4rem; font-weight:300; }
+  @media (max-width:760px){ .strip{ flex-direction:column; } }
+
+  /* FOOTER / CONTACT */
+  footer{
+    padding:5rem clamp(1.2rem,4vw,3.5rem) 2.5rem;
+    background:var(--bg-2);
+    border-top:1px solid var(--line);
+  }
+  .footer-top{
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:3rem;
+    padding-bottom:3rem;
+    border-bottom:1px solid var(--line);
+  }
+  .footer-cta h2{ font-size:clamp(2.2rem,6vw,3.6rem); color:var(--bone); max-width:20ch; }
+  .footer-contact{ display:flex; flex-direction:column; gap:0.8rem; }
+  .footer-contact a, .footer-contact span{ color:var(--bone-dim); font-size:0.95rem; }
+  .footer-contact a:hover{ color:var(--ember-2); }
+  .footer-bottom{
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+    padding-top:1.8rem;
+    font-family:'JetBrains Mono'; font-size:0.72rem; color:var(--bone-dim); letter-spacing:0.05em;
+  }
+  .footer-social{ display:flex; gap:1.2rem; }
+  .footer-social a{ color:var(--bone-dim); }
+  .footer-social a:hover{ color:var(--ember-2); }
+  .footer-credit{
+    text-align:center;
+    margin-top:2rem;
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.68rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--bone-dim);
+    opacity:0.6;
+  }
+
+  /* fade-in on scroll */
+  .reveal{ opacity:0; transform:translateY(18px); transition:opacity .7s ease, transform .7s ease; }
+  .reveal.in{ opacity:1; transform:translateY(0); }
+
+  :focus-visible{ outline:2px solid var(--ember); outline-offset:3px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand"><span class="bolt">▲</span>GLADIATOR</div>
+  <div class="navlinks">
+    <a href="#arena">Arena</a>
+    <a href="#narxlar">Narxlar</a>
+    <a href="#sodiqlik">Sodiqlik</a>
+    <a href="#aloqa">Aloqa</a>
+  </div>
+  <a href="tel:+998914556235" class="nav-cta">Joy band qilish</a>
+</nav>
+
+<header class="hero">
+  <div class="hero-grid"></div>
+  <div class="eyebrow"><span class="dot"></span>YAKKABOG', QASHQADARYO — PS5 GAMING ARENA</div>
+  <h1>KIR<br>ARENA<span class="accent">GA</span></h1>
+  <p class="hero-sub">Gladiator — bu shunchaki o'yin zali emas. Bu yerda har bir raund jang, har bir g'alaba sharaf. PS5 stansiyalar, 4K ekranlar va jamoangiz bilan haqiqiy raqobat muhiti.</p>
+  <div class="hero-actions">
+    <a href="tel:+998914556235" class="btn-primary">Hoziroq joy band qiling</a>
+    <a href="#narxlar" class="btn-ghost">Narxlarni ko'rish</a>
+  </div>
+  <div class="hero-stats">
+    <div><div class="stat-num">6</div><div class="stat-label">PS5 stansiya</div></div>
+    <div><div class="stat-num">4K</div><div class="stat-label">HDR ekranlar</div></div>
+    <div><div class="stat-num">24/7</div><div class="stat-label">Ish vaqti</div></div>
+    <div><div class="stat-num">50+</div><div class="stat-label">O'yinlar to'plami</div></div>
+  </div>
+</header>
+
+<section id="arena" class="arena reveal">
+  <div class="section-head">
+    <div class="eyebrow">Arena xaritasi</div>
+    <h2>Har bir sektor — o'z jangovar zonasi</h2>
+    <p>Arenadagi har bir stansiya o'ziga xos. Tanlang, band qiling, kirishga tayyor bo'ling.</p>
+  </div>
+
+  <div class="arena-wrap arena-map-desktop">
+    <div class="arena-ring"></div>
+    <div class="arena-ring r2"></div>
+    <div class="arena-ring r3"></div>
+    <div class="arena-center">
+      <span class="eyebrow">Markaz</span>
+      <strong>COLOSSEUM</strong>
+    </div>
+    <div class="sector s1">
+      <div class="sec-num">SEKTOR 01</div>
+      <div class="sec-name">Solo Arena</div>
+      <div class="sec-desc">Yakka jangchilar uchun 2 ta stansiya</div>
+    </div>
+    <div class="sector s2">
+      <div class="sec-num">SEKTOR 02</div>
+      <div class="sec-name">Duel Zone</div>
+      <div class="sec-desc">1v1 musobaqalar uchun mos joy</div>
+    </div>
+    <div class="sector s3">
+      <div class="sec-num">SEKTOR 03</div>
+      <div class="sec-name">Squad Room</div>
+      <div class="sec-desc">4 kishilik jamoa xonasi</div>
+    </div>
+    <div class="sector s4">
+      <div class="sec-num">SEKTOR 04</div>
+      <div class="sec-name">VIP Loji</div>
+      <div class="sec-desc">Alohida xona, qulay divanlar</div>
+    </div>
+    <div class="sector s5">
+      <div class="sec-num">SEKTOR 05</div>
+      <div class="sec-name">Racing Pit</div>
+      <div class="sec-desc">Rul va pedallar bilan jihozlangan</div>
+    </div>
+    <div class="sector s6">
+      <div class="sec-num">SEKTOR 06</div>
+      <div class="sec-name">Chill Corner</div>
+      <div class="sec-desc">Kutish va dam olish zonasi</div>
+    </div>
+  </div>
+
+  <div class="arena-map-mobile">
+    <div class="sector"><div class="sec-num">SEKTOR 01</div><div class="sec-name">Solo Arena</div><div class="sec-desc">Yakka jangchilar uchun 2 ta stansiya</div></div>
+    <div class="sector"><div class="sec-num">SEKTOR 02</div><div class="sec-name">Duel Zone</div><div class="sec-desc">1v1 musobaqalar uchun mos joy</div></div>
+    <div class="sector"><div class="sec-num">SEKTOR 03</div><div class="sec-name">Squad Room</div><div class="sec-desc">4 kishilik jamoa xonasi</div></div>
+    <div class="sector"><div class="sec-num">SEKTOR 04</div><div class="sec-name">VIP Loji</div><div class="sec-desc">Alohida xona, qulay divanlar</div></div>
+    <div class="sector"><div class="sec-num">SEKTOR 05</div><div class="sec-name">Racing Pit</div><div class="sec-desc">Rul va pedallar bilan jihozlangan</div></div>
+    <div class="sector"><div class="sec-num">SEKTOR 06</div><div class="sec-name">Chill Corner</div><div class="sec-desc">Kutish va dam olish zonasi</div></div>
+  </div>
+</section>
+
+<div class="strip reveal">
+  <div class="strip-item">
+    <div class="num">01</div>
+    <h4>PS5 + 4K HDR</h4>
+    <p>Har bir stansiyada eng so'nggi konsol</p>
+  </div>
+  <div class="strip-item">
+    <div class="num">02</div>
+    <h4>Tez internet</h4>
+    <p>Online rejim uchun kam ping</p>
+  </div>
+  <div class="strip-item">
+    <div class="num">03</div>
+    <h4>Qulay o'rindiqlar</h4>
+    <p>Uzoq soatlar uchun ergonomik kreslolar</p>
+  </div>
+  <div class="strip-item">
+    <div class="num">04</div>
+    <h4>Ichimlik va snack</h4>
+    <p>Jangdan oldin quvvat oling</p>
+  </div>
+</div>
+
+<section id="narxlar" class="reveal">
+  <div class="section-head">
+    <div class="eyebrow">Tariflar</div>
+    <h2>Vaqtingizni tanlang</h2>
+    <p>Soatlik yoki paketli — sizga qulay narxda o'ynang.</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="eyebrow">1 SOAT</div>
+      <div class="price">15 000<span>so'm</span></div>
+      <p class="desc">Bitta stansiya, bitta soat — tezkor raund uchun.</p>
+    </div>
+    <div class="price-card featured">
+      <div class="eyebrow">3 SOAT</div>
+      <div class="price">40 000<span>so'm</span></div>
+      <p class="desc">Eng ko'p tanlanadigan paket, do'stlar bilan kelish uchun ideal.</p>
+    </div>
+    <div class="price-card">
+      <div class="eyebrow">VIP LOJI / SOAT</div>
+      <div class="price">35 000<span>so'm</span></div>
+      <p class="desc">Alohida xona, katta ekran, shaxsiy muhit.</p>
+    </div>
+    <div class="price-card">
+      <div class="eyebrow">TUNGI PAKET</div>
+      <div class="price">60 000<span>so'm</span></div>
+      <p class="desc">23:00–07:00 — tun bo'yi cheklovsiz o'ynang.</p>
+    </div>
+  </div>
+</section>
+
+<section id="sodiqlik" class="reveal">
+  <div class="loyalty">
+    <div class="stamp-card">
+      <div class="eyebrow">Sodiqlik kartasi</div>
+      <h3>Gladiator Pass</h3>
+      <div class="stamps">
+        <div class="stamp filled">✓</div>
+        <div class="stamp filled">✓</div>
+        <div class="stamp filled">✓</div>
+        <div class="stamp filled">✓</div>
+        <div class="stamp filled">✓</div>
+        <div class="stamp filled">✓</div>
+        <div class="stamp">7</div>
+        <div class="stamp">8</div>
+        <div class="stamp">9</div>
+        <div class="stamp">10</div>
+      </div>
+    </div>
+    <div class="loyalty-text">
+      <div class="eyebrow">Har bir tashrif — bir belgi</div>
+      <h2>10 tashrifdan so'ng — 1 soat bepul</h2>
+      <p>Gladiator Pass egalari har safar tashrif buyurganda kartasiga belgi qo'ydiradi. Karta to'lganda — keyingi soat siz uchun bepul.</p>
+      <ul class="loyalty-list">
+        <li>Har bir tashrifda 1 belgi</li>
+        <li>10 belgi = 1 soat bepul o'yin</li>
+        <li>Karta muddatsiz amal qiladi</li>
+        <li>Do'stlaringizga ham tavsiya qiling — ikkalangiz ham bonus olasiz</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer id="aloqa">
+  <div class="footer-top">
+    <div class="footer-cta">
+      <div class="eyebrow">Aloqa</div>
+      <h2>Arenaga kirishga tayyormisiz?</h2>
+    </div>
+    <div class="footer-contact">
+      <a href="tel:+998914556235">+998 91 455 62 35</a>
+      <span>Yakkabog', Qashqadaryo</span>
+      <span>Har kuni, 24/7</span>
+      <a href="https://t.me/gladiator_gaming" target="_blank" rel="noopener">Telegram: @gladiator_gaming</a>
+      <a href="https://instagram.com/gladiator.gaming" target="_blank" rel="noopener">Instagram: @gladiator.gaming</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 GLADIATOR GAMING ARENA</span>
+    <div class="footer-social">
+      <a href="#arena">Arena</a>
+      <a href="#narxlar">Narxlar</a>
+      <a href="#sodiqlik">Sodiqlik</a>
+    </div>
+  </div>
+  <div class="footer-credit">Sayt Elnur tomonidan yaratildi</div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('in'); }
+    });
+  }, {threshold:0.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+
+</body>
+</html>
