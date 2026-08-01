@@ -3,7 +3,9 @@
 # because Render's free instances have an ephemeral filesystem.
 services:
   - type: web
-    name: multi-agent-analyst-api
+    # Render hostnames are global: a generic name collides with someone else's
+    # service and yours silently gets a suffixed URL. Keep this distinctive.
+    name: sqb-churn-analyst-elnur
     runtime: python
     plan: free
     region: frankfurt
