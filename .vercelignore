@@ -3,6 +3,7 @@
 # detection from mistaking api.py for the project's entrypoint.
 *.py
 agents/
+bot/
 db/
 evaluation/
 tests/

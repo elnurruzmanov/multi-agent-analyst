@@ -25,3 +25,31 @@ services:
       # Lock this down to your Vercel domain once the frontend is deployed.
       - key: ALLOWED_ORIGINS
         value: "*"
+
+  # Gladiator Gaming Arena — Telegram bot. Long polling ishlatadi, shuning
+  # uchun web emas, worker. Bepul tarifda disk vaqtinchalik: qayta deploy
+  # qilinganda SQLite bazasi nolga qaytadi. Buyurtmalar shu sababli darhol
+  # Telegram xabari sifatida ham yuboriladi (va Sheets yoqilgan bo'lsa — unga).
+  # Ma'lumot doimiy turishi kerak bo'lsa, pullik disk ulab DB_PATH ni
+  # /var/data/gladiator.db ga o'zgartiring.
+  - type: worker
+    name: gladiator-bot
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: "pip install -r requirements-bot.txt"
+    startCommand: "python -m bot.main"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # @BotFather bergan token.
+      - key: BOT_TOKEN
+        sync: false
+      # Admin Telegram ID lari, vergul bilan. Botga /id yozib bilib olasiz.
+      - key: ADMIN_IDS
+        sync: false
+      # Google Sheets — ixtiyoriy, bo'sh qoldirsa bot Sheets'siz ishlaydi.
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false

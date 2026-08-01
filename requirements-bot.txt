@@ -1,0 +1,7 @@
+# Telegram bot (bot/). Asosiy backend'dan alohida, chunki u mustaqil servis.
+aiogram>=3.13,<4
+python-dotenv>=1.0
+# Google Sheets ixtiyoriy — kalitsiz ham bot ishlaydi, lekin Render'da
+# o'rnatib qo'yish arzon va keyin faqat env var qo'shish kifoya qiladi.
+gspread>=6.0
+google-auth>=2.30
