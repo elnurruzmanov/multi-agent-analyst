@@ -706,7 +706,8 @@
     function open(){
       lastFocused = document.activeElement;
       overlay.hidden = false;
-      requestAnimationFrame(()=>overlay.classList.add('open'));
+      void overlay.offsetWidth; // force a reflow so the transition runs from the hidden state
+      overlay.classList.add('open');
       hint.textContent = '';
       hint.classList.remove('done');
       phoneLink.focus();
