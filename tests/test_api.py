@@ -10,6 +10,12 @@ def client(monkeypatch):
     return TestClient(api.app)
 
 
+def test_root_explains_the_service_instead_of_404(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "GET /api/health" in r.json()["endpoints"]
+
+
 def test_health_reports_mock_mode(client):
     r = client.get("/api/health")
     assert r.status_code == 200

@@ -63,6 +63,16 @@ class AskResponse(BaseModel):
     critic_verdict: str
 
 
+@app.get("/")
+def root() -> dict:
+    """Opening the bare host in a browser should explain itself, not 404."""
+    return {
+        "service": "Bank Multi-Agent AI Analyst API",
+        "frontend": "https://multi-agent-analyst-nine.vercel.app",
+        "endpoints": ["GET /api/health", "GET /api/stats", "POST /api/ask", "GET /docs"],
+    }
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "mock_mode": config.MOCK}

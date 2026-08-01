@@ -3,9 +3,11 @@
 # because Render's free instances have an ephemeral filesystem.
 services:
   - type: web
-    # Render hostnames are global: a generic name collides with someone else's
-    # service and yours silently gets a suffixed URL. Keep this distinctive.
-    name: sqb-churn-analyst-elnur
+    # Render hostnames are global. This name was already taken, so the live
+    # service is served from multi-agent-analyst-api-22dm.onrender.com — that
+    # suffixed host is what vercel.json proxies to. Renaming here would make
+    # the blueprint create a second service, so leave it alone.
+    name: multi-agent-analyst-api
     runtime: python
     plan: free
     region: frankfurt
