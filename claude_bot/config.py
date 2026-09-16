@@ -62,6 +62,12 @@ if TOOLS not in ("web", "code", "off"):
 # Bitta javob ichida qurol nechta marta ishlatilsin.
 MAX_TOOL_USES = int(os.getenv("CLAUDE_MAX_TOOL_USES", "5"))
 
+# Har javob oxirida taxminiy narxni ko'rsatish. Xarajatni kuzatishning eng
+# oson yo'li — o'chirish uchun CLAUDE_SHOW_COST=0.
+SHOW_COST = os.getenv("CLAUDE_SHOW_COST", "1").strip().lower() not in {
+    "0", "false", "no", "off",
+}
+
 # Nechta xabar (savol + javob) esda qolsin. /new bu tarixni tozalaydi.
 HISTORY_LIMIT = int(os.getenv("CLAUDE_HISTORY_LIMIT", "20"))
 

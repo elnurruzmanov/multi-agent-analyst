@@ -22,7 +22,37 @@ ishga tushirish buyrug'i. Ikkalasi bir vaqtda ishlayverishi mumkin.
 | Formatlash | `**qalin**`, `` `kod` ``, ```` ``` ```` bloklari Telegram HTML'ga aylanadi |
 | Himoya | Foydalanuvchi ro'yxati, savol uzunligi va daqiqalik limit — hisob bo'shab qolmasin |
 
-Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/pdf`, `/model`, `/id`, `/help`.
+Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/pdf`, `/cost`, `/model`,
+`/id`, `/help`.
+
+## Xarajatni ko'rish
+
+Har javob oxirida taxminiy narx turadi (`· ~3 sent`), `/cost` esa yig'indini
+ko'rsatadi: so'nggi 24 soat va bot yoqilgandan beri.
+
+Hisob **taxminiy** va faqat matn tokenlarini oladi — internet qidiruvining
+o'z narxi bunga kirmaydi. Aniq raqam har doim
+[platform.claude.com → Usage](https://platform.claude.com) da. Narxlar
+`pricing.py` da qo'lda yozilgan, model narxi o'zgarsa o'sha yerni yangilash
+kerak.
+
+Sanoq xotirada turadi: qayta deploy qilinganda nolga qaytadi.
+
+Javob oxiridagi qator keraksiz bo'lsa — `CLAUDE_SHOW_COST=0`.
+
+### Nimadan tejaladi
+
+| Usul | Taxminiy tejov | Nimadan voz kechiladi |
+| --- | --- | --- |
+| Mavzu tugagach `/new` | 30–50% | hech narsadan |
+| `CLAUDE_MODEL=claude-sonnet-5` | ~60% | murakkab masalalarda biroz sifat |
+| `CLAUDE_TOOLS=off` | 20–40% | bugungi ma'lumot topilmaydi |
+| `CLAUDE_EFFORT=low` | 20–30% | chuqur o'ylashni talab qiladigan savollar |
+| `CLAUDE_HISTORY_LIMIT=10` | 15–25% | kamroq eslab qoladi |
+
+Birinchi qatori eng kuchlisi va bepul: suhbat tarixi har savolda boshidan
+qayta yuboriladi, ya'ni uzun suhbatning 21-savoli birinchisidan bir necha
+barobar qimmat turadi.
 
 ## PDF
 
@@ -82,6 +112,7 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_HISTORY_LIMIT` | `20` | Nechta xabar esda qolsin |
 | `CLAUDE_MAX_QUESTION_CHARS` | `4000` | Savol uzunligi chegarasi |
 | `CLAUDE_MAX_FILE_MB` | `10` | Yuborilgan fayl hajmi chegarasi |
+| `CLAUDE_SHOW_COST` | `1` | Javob oxirida taxminiy narxni ko'rsatish |
 | `CLAUDE_RATE_LIMIT` | `10` | Bir foydalanuvchi uchun daqiqasiga savol; `0` — cheklovsiz |
 | `CLAUDE_ALLOWED_USER_IDS` | bo'sh | Ruxsat etilganlar; bo'sh — hammaga ochiq |
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
@@ -201,6 +232,8 @@ tozalanadi.
 | `webhook.py` | Webhook rejimi: maxfiy manzil, health sahifa, aiohttp servisi |
 | `tools.py` | Qaysi server qurollari berilishi va nega birga emasligi |
 | `media.py` | Rasm va fayllarni Claude bloklariga aylantirish |
+| `pdf.py` | Javobni PDF fayl qilish |
+| `pricing.py` | Token narxlari va taxminiy hisob |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 
 from aiogram import Bot, Dispatcher, F, Router
@@ -15,9 +16,9 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, BufferedInputFile, Message
 
-from claude_bot import config, formatting, media, pdf, texts, tools, webhook
+from claude_bot import config, formatting, media, pdf, pricing, texts, tools, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
-from claude_bot.session import ChatHistory, RateLimiter
+from claude_bot.session import ChatHistory, RateLimiter, UsageTracker
 
 log = logging.getLogger("claude-bot")
 
@@ -44,6 +45,17 @@ async def cmd_id(message: Message) -> None:
     await message.answer(
         f"Telegram ID: <code>{message.from_user.id}</code>",
         parse_mode=ParseMode.HTML,
+    )
+
+
+@router.message(Command("cost"))
+async def cmd_cost(message: Message, usage: UsageTracker) -> None:
+    await message.answer(
+        texts.cost_report(
+            usage.summary(message.chat.id), config.MODEL, pricing.money,
+        ),
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
     )
 
 
@@ -101,6 +113,7 @@ async def on_question(
     claude: ClaudeClient,
     history: ChatHistory,
     limiter: RateLimiter,
+    usage: UsageTracker,
 ) -> None:
     user_id = message.from_user.id
     if not config.is_allowed(user_id):
@@ -119,7 +132,7 @@ async def on_question(
 
     await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     placeholder = await message.answer(texts.THINKING)
-    await _answer(message, placeholder, claude, history, question, question)
+    await _answer(message, placeholder, claude, history, usage, question, question)
 
 
 @router.message(F.photo | F.document)
@@ -129,6 +142,7 @@ async def on_media(
     claude: ClaudeClient,
     history: ChatHistory,
     limiter: RateLimiter,
+    usage: UsageTracker,
 ) -> None:
     """Rasm yoki fayl: yuklab olamiz, o'qiymiz, savol bilan birga yuboramiz."""
     user_id = message.from_user.id
@@ -157,7 +171,7 @@ async def on_media(
 
     await _safe_edit(placeholder, texts.THINKING)
     await _answer(
-        message, placeholder, claude, history,
+        message, placeholder, claude, history, usage,
         content, f"{texts.media_marker(name)} {question}",
     )
 
@@ -224,6 +238,7 @@ async def _answer(
     placeholder: Message,
     claude: ClaudeClient,
     history: ChatHistory,
+    usage: UsageTracker,
     content,
     marker: str,
 ) -> None:
@@ -253,14 +268,20 @@ async def _answer(
     history.add(chat_id, "user", content, marker=marker)
     history.add(chat_id, "assistant", reply.text)
 
+    spent = pricing.cost(reply.model or config.MODEL, reply.input_tokens, reply.output_tokens)
+    usage.record(chat_id, spent, reply.input_tokens, reply.output_tokens)
+
     answer = reply.text
     if reply.truncated:
         answer += "\n\n…(javob uzunlik chegarasiga yetdi — «davom et» deb yozing)"
 
-    await _deliver(message, placeholder, answer)
+    await _deliver(
+        message, placeholder, answer,
+        footer=texts.cost_line(pricing.money(spent)) if config.SHOW_COST and spent else "",
+    )
     log.info(
-        "chat=%s tokens in=%s out=%s model=%s",
-        chat_id, reply.input_tokens, reply.output_tokens, reply.model,
+        "chat=%s tokens in=%s out=%s model=%s narx=%.4f$",
+        chat_id, reply.input_tokens, reply.output_tokens, reply.model, spent,
     )
 
 
@@ -310,10 +331,19 @@ async def _safe_edit(placeholder: Message, text: str, **kwargs) -> None:
         log.debug("Xabarni tahrirlab bo'lmadi: %s", exc)
 
 
-async def _deliver(message: Message, placeholder: Message, answer: str) -> None:
-    """Javobni bo'laklab yuboradi; HTML o'tmasa — oddiy matn bilan."""
+async def _deliver(
+    message: Message, placeholder: Message, answer: str, footer: str = "",
+) -> None:
+    """Javobni bo'laklab yuboradi; HTML o'tmasa — oddiy matn bilan.
+
+    `footer` — tayyor HTML (masalan narx eslatmasi). U faqat oxirgi bo'lakka
+    qo'shiladi, shuning uchun uzun javobda ham bir marta ko'rinadi.
+    """
     html_chunks = formatting.render(answer)
     plain_chunks = formatting.split_markdown(answer)
+    if footer and html_chunks:
+        html_chunks[-1] += footer
+        plain_chunks[-1] += _strip_tags(footer)
 
     for index, chunk in enumerate(html_chunks):
         plain = plain_chunks[index] if index < len(plain_chunks) else chunk
@@ -334,11 +364,17 @@ async def _deliver(message: Message, placeholder: Message, answer: str) -> None:
                 await message.answer(plain, disable_web_page_preview=True)
 
 
+def _strip_tags(html: str) -> str:
+    """HTML o'tmagan holat uchun teglarni olib tashlaydi."""
+    return re.sub(r"<[^>]+>", "", html)
+
+
 async def _set_commands(bot: Bot) -> None:
     await bot.set_my_commands([
         BotCommand(command="start", description="Boshlash"),
         BotCommand(command="new", description="Suhbatni tozalash"),
         BotCommand(command="pdf", description="Oxirgi javobni PDF qilish"),
+        BotCommand(command="cost", description="Qancha sarflandi"),
         BotCommand(command="model", description="Qaysi model ishlayapti"),
         BotCommand(command="id", description="Telegram ID ni ko'rsatish"),
         BotCommand(command="help", description="Yordam"),
@@ -377,6 +413,7 @@ async def main() -> None:
         claude=claude,
         history=ChatHistory(config.HISTORY_LIMIT),
         limiter=RateLimiter(config.RATE_LIMIT_PER_MINUTE),
+        usage=UsageTracker(),
     )
     dp.include_router(router)
 

@@ -70,6 +70,45 @@ class ChatHistory:
             messages.pop(0)
 
 
+class UsageTracker:
+    """Har bir chat qancha sarflaganini sanab boradi.
+
+    Xotirada turadi — qayta deploy qilinganda nolga qaytadi. Aniq va doimiy
+    hisob Anthropic konsolida; bu esa «hozir qancha ketdi?» degan savolga
+    darhol javob berish uchun.
+    """
+
+    def __init__(self, keep: int = 500) -> None:
+        self.keep = keep
+        self._calls: dict[int, list[tuple[float, float, int, int]]] = {}
+
+    def record(
+        self,
+        chat_id: int,
+        usd: float,
+        input_tokens: int,
+        output_tokens: int,
+        now: float | None = None,
+    ) -> None:
+        moment = time.time() if now is None else now
+        calls = self._calls.setdefault(chat_id, [])
+        calls.append((moment, usd, input_tokens, output_tokens))
+        del calls[:max(0, len(calls) - self.keep)]
+
+    def summary(self, chat_id: int, hours: float = 24.0, now: float | None = None) -> dict:
+        moment = time.time() if now is None else now
+        calls = self._calls.get(chat_id, [])
+        recent = [call for call in calls if moment - call[0] <= hours * 3600]
+        return {
+            "calls": len(calls),
+            "usd": sum(call[1] for call in calls),
+            "input_tokens": sum(call[2] for call in calls),
+            "output_tokens": sum(call[3] for call in calls),
+            "recent_calls": len(recent),
+            "recent_usd": sum(call[1] for call in recent),
+        }
+
+
 class RateLimiter:
     """Bir foydalanuvchi uchun daqiqasiga nechta so'rov — hisobni himoya qiladi."""
 
