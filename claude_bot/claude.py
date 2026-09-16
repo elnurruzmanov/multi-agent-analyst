@@ -12,7 +12,7 @@ from typing import Awaitable, Callable, Sequence
 
 import anthropic
 
-from claude_bot import texts
+from claude_bot import texts, tools as tool_defs
 
 log = logging.getLogger("claude-bot.api")
 
@@ -21,7 +21,13 @@ log = logging.getLogger("claude-bot.api")
 # uchun quyida birinchi 400 xatoligida undan voz kechamiz.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
+# Qurol ishlatganda Claude javobni «pauza» qilib qo'yishi mumkin — davom
+# ettirish bizning zimmamizda. Cheksiz aylanmaslik uchun chegara.
+MAX_TURNS = 8
+
 Progress = Callable[[str], Awaitable[None]]
+# Qurol ishga tushganda chaqiriladi: «qidiryapman», «hisoblayapman».
+Status = Callable[[str], Awaitable[None]]
 
 
 @dataclass
@@ -51,6 +57,8 @@ class ClaudeClient:
         effort: str,
         use_fallbacks: bool = True,
         use_thinking: bool = True,
+        tool_mode: str = "off",
+        max_tool_uses: int = tool_defs.DEFAULT_MAX_USES,
     ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
@@ -58,15 +66,30 @@ class ClaudeClient:
         self.max_tokens = max_tokens
         self.effort = effort
         self.use_thinking = use_thinking
+        self.tool_mode = tool_mode
+        self.tools = tool_defs.build(tool_mode, max_tool_uses)
         self._use_fallbacks = use_fallbacks
 
     async def ask(
         self,
         messages: Sequence[dict[str, str]],
         on_progress: Progress | None = None,
+        on_status: Status | None = None,
     ) -> Reply:
-        """Suhbat tarixini yuborib, to'liq javobni qaytaradi."""
-        final = await self._stream(list(messages), on_progress)
+        """Suhbat tarixini yuborib, to'liq javobni qaytaradi.
+
+        Qurol ishlatilganda Claude `pause_turn` bilan to'xtashi mumkin — bu
+        «men hali tugatmadim» degani, javobni davom ettirish uchun turgan
+        joyidan qayta so'raymiz.
+        """
+        conversation = list(messages)
+        final = await self._stream(conversation, on_progress, on_status)
+
+        for _ in range(MAX_TURNS - 1):
+            if final.stop_reason != "pause_turn":
+                break
+            conversation.append({"role": "assistant", "content": final.content})
+            final = await self._stream(conversation, on_progress, on_status)
 
         text = "".join(
             block.text for block in final.content if block.type == "text"
@@ -93,8 +116,9 @@ class ClaudeClient:
 
     async def _stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         on_progress: Progress | None,
+        on_status: Status | None = None,
     ):
         kwargs = dict(
             model=self.model,
@@ -105,6 +129,8 @@ class ClaudeClient:
         )
         if self.use_thinking:
             kwargs["thinking"] = {"type": "adaptive"}
+        if self.tools:
+            kwargs["tools"] = self.tools
 
         if self._use_fallbacks:
             try:
@@ -113,6 +139,7 @@ class ClaudeClient:
                         betas=[FALLBACK_BETA], fallbacks="default", **kwargs
                     ),
                     on_progress,
+                    on_status,
                 )
             except (anthropic.BadRequestError, TypeError) as exc:
                 # Beta bayrog'i yoki SDK versiyasi mos kelmadi — bu javobni
@@ -120,16 +147,30 @@ class ClaudeClient:
                 self._use_fallbacks = False
                 log.warning("Server fallback o'chirildi: %s", exc)
 
-        return await self._consume(self._client.messages.stream(**kwargs), on_progress)
+        return await self._consume(
+            self._client.messages.stream(**kwargs), on_progress, on_status
+        )
 
     @staticmethod
-    async def _consume(stream_context, on_progress: Progress | None):
+    async def _consume(
+        stream_context,
+        on_progress: Progress | None,
+        on_status: Status | None = None,
+    ):
         buffer: list[str] = []
         async with stream_context as stream:
-            async for piece in stream.text_stream:
-                buffer.append(piece)
-                if on_progress is not None:
-                    await on_progress("".join(buffer))
+            async for event in stream:
+                if event.type == "content_block_start":
+                    block = event.content_block
+                    # Qurol ishga tushdi — foydalanuvchi kutib turganini
+                    # bilsin, chunki qidiruv paytida matn oqmaydi.
+                    if block.type in ("server_tool_use", "mcp_tool_use") and on_status:
+                        await on_status(getattr(block, "name", ""))
+                elif event.type == "content_block_delta":
+                    if event.delta.type == "text_delta":
+                        buffer.append(event.delta.text)
+                        if on_progress is not None:
+                            await on_progress("".join(buffer))
             return await stream.get_final_message()
 
 

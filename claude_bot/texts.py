@@ -7,6 +7,8 @@ WELCOME = (
     "yerga qaytaraman. O'zbek, rus yoki ingliz tilida yozishingiz mumkin.\n\n"
     "Suhbat konteksti eslab qolinadi, ya'ni «buni qisqartir» deb davom "
     "ettirsangiz ham tushunaman.\n\n"
+    "Kerak bo'lsa internetdan qidirib ham ko'raman — bugungi yangilik yoki "
+    "kurs kabi narsalarni so'rayvering.\n\n"
     "<b>Buyruqlar</b>\n"
     "/new — suhbatni noldan boshlash\n"
     "/model — qaysi model ishlayotgani\n"
@@ -15,6 +17,18 @@ WELCOME = (
 )
 
 THINKING = "⏳ O'ylayapman…"
+
+# Qurol ishga tushganda ko'rsatiladigan holat.
+TOOL_STATUS = {
+    "web_search": "🔎 Internetdan qidiryapman…",
+    "web_fetch": "📄 Sahifani o'qiyapman…",
+    "code_execution": "🧮 Hisoblayapman…",
+    "bash_code_execution": "🧮 Hisoblayapman…",
+}
+
+
+def tool_status(name: str) -> str:
+    return TOOL_STATUS.get(name, "🛠 Qurol ishlatyapman…")
 CLEARED = "🧹 Suhbat tozalandi. Yangi mavzudan boshlayveramiz."
 EMPTY_ANSWER = "Claude bo'sh javob qaytardi. Savolni boshqacha yozib ko'ring."
 NOT_ALLOWED = (
@@ -40,10 +54,11 @@ def rate_limited(per_minute: int) -> str:
     )
 
 
-def model_info(model: str, effort: str, history_len: int) -> str:
+def model_info(model: str, effort: str, history_len: int, tools: str) -> str:
     return (
         f"<b>Model:</b> <code>{model}</code>\n"
         f"<b>Effort:</b> <code>{effort}</code>\n"
+        f"<b>Qurollar:</b> {tools}\n"
         f"<b>Eslab turganim:</b> {history_len} ta xabar\n\n"
         "Tozalash uchun /new."
     )

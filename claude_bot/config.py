@@ -48,6 +48,16 @@ SYSTEM_PROMPT = os.getenv(
     "oddiy ro'yxat ishlat, kod kerak bo'lsa ``` bilan blokka ol.",
 ).strip()
 
+# Claude tomonida ishlaydigan qurollar: `web` — internetdan qidirish va
+# o'qish, `code` — kod bajarish, `off` — qurolsiz. Batafsil: tools.py.
+# Qurollar javobni aniqroq qiladi, lekin har chaqiruv qo'shimcha pul turadi.
+TOOLS = os.getenv("CLAUDE_TOOLS", "web").strip().lower()
+if TOOLS not in ("web", "code", "off"):
+    TOOLS = "web"
+
+# Bitta javob ichida qurol nechta marta ishlatilsin.
+MAX_TOOL_USES = int(os.getenv("CLAUDE_MAX_TOOL_USES", "5"))
+
 # Nechta xabar (savol + javob) esda qolsin. /new bu tarixni tozalaydi.
 HISTORY_LIMIT = int(os.getenv("CLAUDE_HISTORY_LIMIT", "20"))
 
