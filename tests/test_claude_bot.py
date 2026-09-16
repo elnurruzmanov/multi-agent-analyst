@@ -471,6 +471,17 @@ def test_no_tools_key_when_mode_is_off(monkeypatch):
     assert "tools" not in captured
 
 
+def test_search_that_runs_code_still_reads_as_searching():
+    from claude_bot import texts
+
+    # Qidiruv quroli natijalarni saralash uchun ichida kod bajaradi — bu
+    # foydalanuvchiga «hisoblayapman» bo'lib ko'rinmasligi kerak.
+    assert texts.tool_status("code_execution", "web") == texts.TOOL_STATUS["web_search"]
+    # `code` rejimida esa hisoblash haqiqatan hisoblash.
+    assert texts.tool_status("code_execution", "code") == texts.TOOL_STATUS["code_execution"]
+    assert texts.tool_status("web_fetch", "web") == texts.TOOL_STATUS["web_fetch"]
+
+
 def test_status_callback_fires_when_a_tool_starts(monkeypatch):
     import asyncio
 

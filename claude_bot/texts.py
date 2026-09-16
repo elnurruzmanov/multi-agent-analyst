@@ -26,8 +26,19 @@ TOOL_STATUS = {
     "bash_code_execution": "🧮 Hisoblayapman…",
 }
 
+_CODE_TOOLS = ("code_execution", "bash_code_execution")
 
-def tool_status(name: str) -> str:
+
+def tool_status(name: str, mode: str = "") -> str:
+    """Qurol nomidan foydalanuvchiga ko'rsatiladigan holat.
+
+    `web` rejimida qidiruv quroli natijalarni saralash uchun ichida kod
+    bajaradi. Buni «hisoblayapman» deb ko'rsatsak, foydalanuvchi nima
+    bo'layotganini noto'g'ri tushunadi — aslida bu hamon qidiruvning bir
+    qismi.
+    """
+    if mode == "web" and name in _CODE_TOOLS:
+        return TOOL_STATUS["web_search"]
     return TOOL_STATUS.get(name, "🛠 Qurol ishlatyapman…")
 CLEARED = "🧹 Suhbat tozalandi. Yangi mavzudan boshlayveramiz."
 EMPTY_ANSWER = "Claude bo'sh javob qaytardi. Savolni boshqacha yozib ko'ring."

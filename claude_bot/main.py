@@ -146,7 +146,7 @@ def _progress(placeholder: Message):
         await _safe_edit(placeholder, preview)
 
     async def status(tool_name: str) -> None:
-        note = texts.tool_status(tool_name)
+        note = texts.tool_status(tool_name, config.TOOLS)
         if note == state["text"]:
             return
         state["at"], state["text"] = time.monotonic(), note
