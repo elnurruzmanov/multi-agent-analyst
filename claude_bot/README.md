@@ -54,7 +54,28 @@ Birinchi qatori eng kuchlisi va bepul: suhbat tarixi har savolda boshidan
 qayta yuboriladi, ya'ni uzun suhbatning 21-savoli birinchisidan bir necha
 barobar qimmat turadi.
 
-## PDF
+## Fayl yasash
+
+Claude foydalanuvchiga **Excel, Word, PDF, CSV va matn** fayllarini yasab
+bera oladi. Buning uchun unga `create_file` degan qurol berilgan
+(`files.py`): model qanday fayl kerakligini va ichida nima bo'lishini
+aytadi, faylni esa bot yig'ib, hujjat sifatida yuboradi.
+
+Ya'ni alohida buyruq o'rganish shart emas — «buni excelga sol» deb
+yozaverasiz, model o'zi qurolni chaqiradi.
+
+| So'ralganda | Model nima beradi |
+| --- | --- |
+| Jadval, ro'yxat, hisob-kitob | `rows` (birinchi qator sarlavha) → `.xlsx` yoki `.csv` |
+| Matnli hujjat, bayon, xat | `text` (markdown) → `.docx` yoki `.pdf` |
+
+Bitta javobda ko'pi bilan `MAX_FILES` (5) ta fayl yasaladi. Qurol noto'g'ri
+ma'lumot olsa xatolik modelga qaytariladi va u boshqacha urinib ko'radi —
+javob butunlay yo'qolmaydi.
+
+Butunlay o'chirish: `CLAUDE_MAKE_FILES=0`.
+
+## /pdf
 
 `/pdf` oxirgi javobni PDF fayl qilib yuboradi. Fayl shu yerda, bot ichida
 yig'iladi (`reportlab`) — **Claude fayl yarata olmaydi**, u faqat matn
@@ -113,6 +134,7 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_MAX_QUESTION_CHARS` | `4000` | Savol uzunligi chegarasi |
 | `CLAUDE_MAX_FILE_MB` | `10` | Yuborilgan fayl hajmi chegarasi |
 | `CLAUDE_SHOW_COST` | `1` | Javob oxirida taxminiy narxni ko'rsatish |
+| `CLAUDE_MAKE_FILES` | `1` | Claude fayl yasab bera olsinmi |
 | `CLAUDE_RATE_LIMIT` | `10` | Bir foydalanuvchi uchun daqiqasiga savol; `0` — cheklovsiz |
 | `CLAUDE_ALLOWED_USER_IDS` | bo'sh | Ruxsat etilganlar; bo'sh — hammaga ochiq |
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
@@ -234,6 +256,7 @@ tozalanadi.
 | `media.py` | Rasm va fayllarni Claude bloklariga aylantirish |
 | `pdf.py` | Javobni PDF fayl qilish |
 | `pricing.py` | Token narxlari va taxminiy hisob |
+| `files.py` | `create_file` quroli: Excel, Word, PDF, CSV yasash |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

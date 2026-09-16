@@ -57,6 +57,7 @@ ONLY_TEXT = (
 
 DOWNLOADING = "📥 Faylni olyapman…"
 
+MAKING_FILE = "📎 Fayl tayyorlayapman…"
 MAKING_PDF = "📄 PDF tayyorlayapman…"
 PDF_READY = "Mana, PDF tayyor."
 PDF_SENT = "📄 PDF yuborildi."

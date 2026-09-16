@@ -28,6 +28,8 @@ MAX_TURNS = 8
 Progress = Callable[[str], Awaitable[None]]
 # Qurol ishga tushganda chaqiriladi: «qidiryapman», «hisoblayapman».
 Status = Callable[[str], Awaitable[None]]
+# Model bizdan ish so'raganda chaqiriladi: (qurol nomi, kiritma) → natija.
+Tool = Callable[[str, object], Awaitable[str]]
 
 
 @dataclass
@@ -59,6 +61,7 @@ class ClaudeClient:
         use_thinking: bool = True,
         tool_mode: str = "off",
         max_tool_uses: int = tool_defs.DEFAULT_MAX_USES,
+        client_tools: Sequence[dict] = (),
     ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
@@ -67,28 +70,42 @@ class ClaudeClient:
         self.effort = effort
         self.use_thinking = use_thinking
         self.tool_mode = tool_mode
-        self.tools = tool_defs.build(tool_mode, max_tool_uses)
+        # Server qurollari Anthropic tomonida ishlaydi, client qurollari —
+        # shu yerda, bizning kodimizda (masalan fayl yasash).
+        self.tools = tool_defs.build(tool_mode, max_tool_uses) + list(client_tools)
         self._use_fallbacks = use_fallbacks
 
     async def ask(
         self,
-        messages: Sequence[dict[str, str]],
+        messages: Sequence[dict],
         on_progress: Progress | None = None,
         on_status: Status | None = None,
+        on_tool: Tool | None = None,
     ) -> Reply:
         """Suhbat tarixini yuborib, to'liq javobni qaytaradi.
 
-        Qurol ishlatilganda Claude `pause_turn` bilan to'xtashi mumkin — bu
-        «men hali tugatmadim» degani, javobni davom ettirish uchun turgan
-        joyidan qayta so'raymiz.
+        Javob ikki sababdan bo'linishi mumkin:
+
+        * `pause_turn` — server quroli (qidiruv) uzoq ishladi, davom ettiramiz;
+        * `tool_use` — model bizdan biror ish so'radi (masalan fayl yasash),
+          uni bajarib, natijasini qaytaramiz.
+
+        Ikkalasida ham suhbatni turgan joyidan davom ettiramiz.
         """
         conversation = list(messages)
         final = await self._stream(conversation, on_progress, on_status)
 
         for _ in range(MAX_TURNS - 1):
-            if final.stop_reason != "pause_turn":
+            if final.stop_reason == "pause_turn":
+                conversation.append({"role": "assistant", "content": final.content})
+            elif final.stop_reason == "tool_use" and on_tool is not None:
+                results = await self._run_tools(final, on_tool)
+                if not results:
+                    break
+                conversation.append({"role": "assistant", "content": final.content})
+                conversation.append({"role": "user", "content": results})
+            else:
                 break
-            conversation.append({"role": "assistant", "content": final.content})
             final = await self._stream(conversation, on_progress, on_status)
 
         text = "".join(
@@ -113,6 +130,34 @@ class ClaudeClient:
 
     async def aclose(self) -> None:
         await self._client.close()
+
+    @staticmethod
+    async def _run_tools(final, on_tool: Tool) -> list[dict]:
+        """Model so'ragan qurollarni bajarib, natijalarni bir xabarga yig'adi.
+
+        Xatolik ham natija: uni `is_error` bilan qaytarsak, model tushunadi
+        va boshqacha urinib ko'radi — javobni butunlay yo'qotgandan yaxshi.
+        """
+        results: list[dict] = []
+        for block in final.content:
+            if block.type != "tool_use":
+                continue
+            try:
+                text = await on_tool(block.name, block.input)
+                results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": text,
+                })
+            except Exception as exc:
+                log.warning("Qurol bajarilmadi (%s): %s", block.name, exc)
+                results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "is_error": True,
+                    "content": str(exc) or "Qurol ishlamadi.",
+                })
+        return results
 
     async def _stream(
         self,

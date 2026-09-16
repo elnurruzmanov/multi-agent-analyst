@@ -179,9 +179,17 @@ class _Usage:
     output_tokens = 22
 
 
+class _ToolUse:
+    def __init__(self, tool_id, name, payload):
+        self.type = "tool_use"
+        self.id = tool_id
+        self.name = name
+        self.input = payload
+
+
 class _Message:
-    def __init__(self, text, stop_reason="end_turn", stop_details=None):
-        self.content = [_Block(text)]
+    def __init__(self, text, stop_reason="end_turn", stop_details=None, content=None):
+        self.content = content if content is not None else [_Block(text)]
         self.stop_reason = stop_reason
         self.stop_details = stop_details
         self.usage = _Usage()
@@ -321,7 +329,7 @@ class _StubClaude:
         self.reply = reply
         self.seen = None
 
-    async def ask(self, messages, on_progress=None, on_status=None):
+    async def ask(self, messages, on_progress=None, on_status=None, on_tool=None):
         self.seen = list(messages)
         if on_status is not None:
             await on_status("web_search")
@@ -558,6 +566,147 @@ def test_plain_text_history_is_untouched_by_markers():
     ]
 
 
+# --- fayl yasash quroli -----------------------------------------------------
+
+def test_excel_is_built_from_rows():
+    pytest.importorskip("openpyxl")
+    import io
+
+    import openpyxl
+
+    from claude_bot import files
+
+    note, artifact = files.run({
+        "kind": "xlsx",
+        "filename": "qarindoshlar",
+        "rows": [["Ism", "Summa"], ["Akram", 300000], ["Elnur", 800000]],
+    })
+
+    assert artifact.filename == "qarindoshlar.xlsx"
+    assert "qarindoshlar.xlsx" in note
+    sheet = openpyxl.load_workbook(io.BytesIO(artifact.data)).worksheets[0]
+    assert [cell.value for cell in sheet[1]] == ["Ism", "Summa"]
+    assert sheet["B3"].value == 800000
+    assert sheet[1][0].font.bold  # sarlavha ajratilgan bo'lsin
+
+
+def test_excel_can_hold_several_sheets():
+    pytest.importorskip("openpyxl")
+    import io
+
+    import openpyxl
+
+    from claude_bot import files
+
+    _, artifact = files.run({
+        "kind": "xlsx",
+        "sheets": [
+            {"name": "Yanvar", "rows": [["a", 1]]},
+            {"name": "Fevral", "rows": [["b", 2]]},
+        ],
+    })
+
+    book = openpyxl.load_workbook(io.BytesIO(artifact.data))
+    assert book.sheetnames == ["Yanvar", "Fevral"]
+
+
+def test_word_document_is_built_from_text():
+    docx = pytest.importorskip("docx")
+    import io
+
+    from claude_bot import files
+
+    _, artifact = files.run({
+        "kind": "docx",
+        "title": "Hisobot",
+        "text": "## Bo'lim\n\n- Birinchi band\n\nOddiy xatboshi.",
+    })
+
+    assert artifact.filename == "hisobot.docx"
+    document = docx.Document(io.BytesIO(artifact.data))
+    texts_in_doc = [p.text for p in document.paragraphs]
+    assert "Hisobot" in texts_in_doc
+    assert "Birinchi band" in texts_in_doc
+
+
+def test_csv_is_utf8_with_bom_so_excel_opens_it():
+    from claude_bot import files
+
+    _, artifact = files.run({"kind": "csv", "rows": [["Ism", "Summa"], ["Aziz", 10]]})
+
+    assert artifact.filename.endswith(".csv")
+    assert artifact.data.startswith(b"\xef\xbb\xbf")
+    assert b"Ism,Summa" in artifact.data
+
+
+def test_pdf_can_be_made_through_the_tool():
+    pytest.importorskip("reportlab")
+    from claude_bot import files
+
+    _, artifact = files.run({"kind": "pdf", "title": "Bayon", "text": "Matn"})
+    assert artifact.data.startswith(b"%PDF")
+
+
+def test_tool_refuses_what_it_cannot_build():
+    from claude_bot import files
+
+    with pytest.raises(files.BadInput):
+        files.run({"kind": "mp3", "text": "salom"})
+    with pytest.raises(files.BadInput):
+        files.run({"kind": "xlsx"})           # jadvalsiz jadval
+    with pytest.raises(files.BadInput):
+        files.run({"kind": "docx", "text": " "})  # bo'sh hujjat
+    with pytest.raises(files.BadInput):
+        files.run("umuman boshqa narsa")
+
+
+def test_stray_row_shapes_are_tolerated():
+    from claude_bot import files
+
+    # Model qatorni matn qilib yuborishi mumkin — yiqilmasin.
+    _, artifact = files.run({"kind": "csv", "rows": ["birinchi", ["ikkinchi", 2], None]})
+    assert b"birinchi" in artifact.data
+    assert b"ikkinchi,2" in artifact.data
+
+
+def test_tool_call_reaches_the_user_as_a_document(monkeypatch):
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    pytest.importorskip("openpyxl")
+    from claude_bot import main
+    from claude_bot.session import UsageTracker
+
+    class _FileClaude:
+        """Birinchi navbatda qurolni chaqiradi, keyin javob beradi."""
+
+        def __init__(self):
+            self.reply = _reply("Excel tayyor", input_tokens=10, output_tokens=5)
+
+        async def ask(self, messages, on_progress=None, on_status=None, on_tool=None):
+            await on_tool("create_file", {
+                "kind": "xlsx", "filename": "royxat",
+                "rows": [["Ism", "Summa"], ["Akram", 300000]],
+            })
+            return self.reply
+
+    message = _StubMessage("ro'yxatni excelga sol")
+    asyncio.run(
+        main.on_question(
+            message,
+            bot=_StubBot(),
+            claude=_FileClaude(),
+            history=ChatHistory(),
+            limiter=RateLimiter(per_minute=0),
+            usage=UsageTracker(),
+        )
+    )
+
+    sent = [item for item in message.outbox if hasattr(item, "filename")]
+    assert len(sent) == 1
+    assert sent[0].filename == "royxat.xlsx"
+
+
 # --- xarajat ----------------------------------------------------------------
 
 def test_cost_follows_the_price_list():
@@ -774,6 +923,78 @@ def test_status_callback_fires_when_a_tool_starts(monkeypatch):
         client.ask([{"role": "user", "content": "hi"}], None, on_status)
     )
     assert seen == ["web_search"]
+
+
+def _tool_client(monkeypatch, replies, sent, on_tool_calls):
+    pytest.importorskip("anthropic")
+    from claude_bot.claude import ClaudeClient
+
+    client = ClaudeClient(
+        "sk-test", model="claude-opus-5", system="test",
+        max_tokens=100, effort="low", use_fallbacks=False,
+    )
+
+    def fake_stream(**kwargs):
+        sent.append(kwargs["messages"])
+        return replies[len(sent) - 1]
+
+    monkeypatch.setattr(client._client.messages, "stream", fake_stream, raising=False)
+    return client
+
+
+def test_tool_call_is_executed_and_the_turn_continues(monkeypatch):
+    import asyncio
+
+    sent, calls = [], []
+    replies = [
+        _FakeStream([], _Message("", stop_reason="tool_use", content=[
+            _ToolUse("t1", "create_file", {"kind": "csv"}),
+        ])),
+        _FakeStream(["Fayl tayyor"], _Message("Fayl tayyor")),
+    ]
+    client = _tool_client(monkeypatch, replies, sent, calls)
+
+    async def on_tool(name, payload):
+        calls.append((name, payload))
+        return "«a.csv» tayyorlandi."
+
+    reply = asyncio.run(
+        client.ask([{"role": "user", "content": "csv qil"}], None, None, on_tool)
+    )
+
+    assert reply.text == "Fayl tayyor"
+    assert calls == [("create_file", {"kind": "csv"})]
+    # Ikkinchi so'rovda qurol natijasi qaytgan bo'lsin.
+    result = sent[1][-1]
+    assert result["role"] == "user"
+    assert result["content"][0]["type"] == "tool_result"
+    assert result["content"][0]["tool_use_id"] == "t1"
+
+
+def test_tool_failure_is_reported_back_to_the_model(monkeypatch):
+    import asyncio
+
+    sent, calls = [], []
+    replies = [
+        _FakeStream([], _Message("", stop_reason="tool_use", content=[
+            _ToolUse("t1", "create_file", {"kind": "mp3"}),
+        ])),
+        _FakeStream(["Uzr, mp3 qila olmayman"], _Message("Uzr, mp3 qila olmayman")),
+    ]
+    client = _tool_client(monkeypatch, replies, sent, calls)
+
+    async def on_tool(name, payload):
+        raise ValueError("mp3 qo'llab-quvvatlanmaydi")
+
+    reply = asyncio.run(
+        client.ask([{"role": "user", "content": "mp3 qil"}], None, None, on_tool)
+    )
+
+    # Xatolik javobni yo'q qilmaydi — model uni o'qib, tushuntirib beradi.
+    assert "mp3" in reply.text
+    result = sent[1][-1]["content"][0]
+    assert result["is_error"] is True
+    assert "mp3" in result["content"]
 
 
 def test_paused_turn_is_resumed(monkeypatch):
