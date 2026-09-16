@@ -7,6 +7,7 @@ botni sinab ko'rayotganda qulay bo'lsin uchun.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -62,6 +63,22 @@ if TOOLS not in ("web", "code", "off"):
 
 # Bitta javob ichida qurol nechta marta ishlatilsin.
 MAX_TOOL_USES = int(os.getenv("CLAUDE_MAX_TOOL_USES", "5"))
+
+# --- Jadval bo'yicha ishlash ----------------------------------------------
+# Vazifalar SQLite'da saqlanadi. Render'ning bepul tarifida disk vaqtinchalik:
+# qayta deploy qilinganda vazifalar yo'qoladi. Doimiy disk ulasangiz, bu
+# yo'lni /var/data/tasks.db ga o'zgartiring.
+TASKS_DB = os.getenv("CLAUDE_TASKS_DB", str(Path(__file__).parent / "data" / "tasks.db"))
+
+# Foydalanuvchining mahalliy vaqti UTC dan qancha farq qiladi. O'zbekiston +5.
+TZ_OFFSET = float(os.getenv("CLAUDE_TZ_OFFSET", "5"))
+
+# Uxlab qolgan servis kech uyg'onsa, vazifa qancha kechikkunicha bajarilsin.
+TASK_GRACE_HOURS = float(os.getenv("CLAUDE_TASK_GRACE_HOURS", "6"))
+
+SCHEDULE_ENABLED = os.getenv("CLAUDE_SCHEDULE", "1").strip().lower() not in {
+    "0", "false", "no", "off",
+}
 
 # Claude foydalanuvchiga fayl (Excel, Word, PDF, CSV) yasab bera olsinmi.
 MAKE_FILES = os.getenv("CLAUDE_MAKE_FILES", "1").strip().lower() not in {

@@ -23,7 +23,7 @@ ishga tushirish buyrug'i. Ikkalasi bir vaqtda ishlayverishi mumkin.
 | Himoya | Foydalanuvchi ro'yxati, savol uzunligi va daqiqalik limit — hisob bo'shab qolmasin |
 
 Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/pdf`, `/cost`, `/model`,
-`/id`, `/help`.
+`/id`, `/tasks`, `/help`.
 
 ## Xarajatni ko'rish
 
@@ -53,6 +53,43 @@ Javob oxiridagi qator keraksiz bo'lsa — `CLAUDE_SHOW_COST=0`.
 Birinchi qatori eng kuchlisi va bepul: suhbat tarixi har savolda boshidan
 qayta yuboriladi, ya'ni uzun suhbatning 21-savoli birinchisidan bir necha
 barobar qimmat turadi.
+
+## Jadval bo'yicha ishlash
+
+«Har kuni ertalab 8 da valyuta kursini yuborib tur» deb yozsangiz, bot shuni
+eslab qoladi va o'sha vaqtda o'zi bajarib, javobini yuboradi. Siz so'ramaysiz —
+u o'zi yozadi.
+
+Buyruq o'rganish shart emas: model `schedule_task`, `list_tasks` va
+`cancel_task` qurollari orqali o'zi qo'shadi, ko'rsatadi va o'chiradi.
+`/tasks` esa ro'yxatni to'g'ridan-to'g'ri ko'rsatadi.
+
+Vaqt foydalanuvchining mahalliy vaqti bo'yicha — `CLAUDE_TZ_OFFSET`
+(O'zbekiston uchun `5`).
+
+### Uxlab qolgan servis muammosi
+
+Bepul tarifda servis 15 daqiqa jimlikdan keyin uxlaydi, uxlagan servisning
+ichki soati esa to'xtaydi. Shuning uchun ikkita mexanizm bor:
+
+1. **Ichki soat** — bot uyg'oq bo'lganda har daqiqada tekshiradi.
+2. **Tashqi turtki** — `/tasks/run?key=…` manzili. Uni bepul cron xizmatiga
+   (masalan `cron-job.org`) berib qo'ysangiz, o'sha chaqiruv servisni
+   uyg'otadi va kechikkan vazifalar o'sha zahoti bajariladi. To'liq manzil
+   ishga tushganda logda chiqadi.
+
+Shu sababli vazifa kechikishga chidamli: 8:00 lik vazifa servis 8:40 da
+uyg'onsa ham bajariladi. `CLAUDE_TASK_GRACE_HOURS` (6 soat) dan ko'p
+kechiksa esa o'tkazib yuboriladi — ertalabki xulosa kechqurun kelib
+qolmasin uchun.
+
+### Saqlanishi
+
+Vazifalar SQLite'da (`CLAUDE_TASKS_DB`). Render'ning bepul tarifida disk
+vaqtinchalik: **qayta deploy qilinganda vazifalar yo'qoladi**. Doimiy kerak
+bo'lsa, pullik disk ulab yo'lni `/var/data/tasks.db` ga o'zgartiring.
+
+Bitta chatda ko'pi bilan 10 ta vazifa.
 
 ## Fayl yasash
 
@@ -135,6 +172,10 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_MAX_FILE_MB` | `10` | Yuborilgan fayl hajmi chegarasi |
 | `CLAUDE_SHOW_COST` | `1` | Javob oxirida taxminiy narxni ko'rsatish |
 | `CLAUDE_MAKE_FILES` | `1` | Claude fayl yasab bera olsinmi |
+| `CLAUDE_SCHEDULE` | `1` | Jadval bo'yicha ishlash yoqilganmi |
+| `CLAUDE_TZ_OFFSET` | `5` | Mahalliy vaqt UTC dan qancha farq qiladi |
+| `CLAUDE_TASKS_DB` | `claude_bot/data/tasks.db` | Vazifalar bazasi |
+| `CLAUDE_TASK_GRACE_HOURS` | `6` | Kechikkan vazifa qancha vaqtgacha bajarilsin |
 | `CLAUDE_RATE_LIMIT` | `10` | Bir foydalanuvchi uchun daqiqasiga savol; `0` — cheklovsiz |
 | `CLAUDE_ALLOWED_USER_IDS` | bo'sh | Ruxsat etilganlar; bo'sh — hammaga ochiq |
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
@@ -257,6 +298,8 @@ tozalanadi.
 | `pdf.py` | Javobni PDF fayl qilish |
 | `pricing.py` | Token narxlari va taxminiy hisob |
 | `files.py` | `create_file` quroli: Excel, Word, PDF, CSV yasash |
+| `tasks.py` | Jadval: saqlash, «vaqti keldimi» hisobi, qurollar |
+| `scheduler.py` | Vaqti kelgan vazifalarni bajarish |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

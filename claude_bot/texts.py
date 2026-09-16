@@ -58,6 +58,24 @@ ONLY_TEXT = (
 DOWNLOADING = "📥 Faylni olyapman…"
 
 MAKING_FILE = "📎 Fayl tayyorlayapman…"
+
+NO_TASKS = (
+    "Rejalashtirilgan vazifa yo'q.\n\n"
+    "Qo'shish uchun oddiy qilib yozing, masalan:\n"
+    "«har kuni ertalab 8 da bugungi valyuta kursini yuborib tur»"
+)
+
+
+def task_header(prompt: str) -> str:
+    return f"⏰ <b>Rejalashtirilgan vazifa</b>\n<i>{prompt}</i>"
+
+
+def task_list(items: list) -> str:
+    lines = ["⏰ <b>Rejalashtirilgan vazifalar</b>\n"]
+    for task in items:
+        lines.append(f"<b>#{task.id}</b> · {task.when}\n{task.prompt}\n")
+    lines.append("O'chirish uchun: «3-vazifani o'chir» deb yozing.")
+    return "\n".join(lines)
 MAKING_PDF = "📄 PDF tayyorlayapman…"
 PDF_READY = "Mana, PDF tayyor."
 PDF_SENT = "📄 PDF yuborildi."
