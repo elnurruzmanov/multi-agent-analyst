@@ -15,7 +15,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, Message
 
-from claude_bot import config, formatting, texts, tools, webhook
+from claude_bot import config, formatting, media, texts, tools, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter
 
@@ -83,12 +83,123 @@ async def on_question(
         await message.answer(texts.rate_limited(config.RATE_LIMIT_PER_MINUTE))
         return
 
-    chat_id = message.chat.id
-    await bot.send_chat_action(chat_id, ChatAction.TYPING)
+    await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     placeholder = await message.answer(texts.THINKING)
+    await _answer(message, placeholder, claude, history, question, question)
 
-    conversation = history.get(chat_id) + [{"role": "user", "content": question}]
 
+@router.message(F.photo | F.document)
+async def on_media(
+    message: Message,
+    bot: Bot,
+    claude: ClaudeClient,
+    history: ChatHistory,
+    limiter: RateLimiter,
+) -> None:
+    """Rasm yoki fayl: yuklab olamiz, o'qiymiz, savol bilan birga yuboramiz."""
+    user_id = message.from_user.id
+    if not config.is_allowed(user_id):
+        await message.answer(texts.NOT_ALLOWED)
+        return
+    if not limiter.allow(user_id):
+        await message.answer(texts.rate_limited(config.RATE_LIMIT_PER_MINUTE))
+        return
+
+    await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    placeholder = await message.answer(texts.DOWNLOADING)
+
+    try:
+        block, name, default_prompt = await _read_attachment(message, bot, placeholder)
+    except _MediaError as exc:
+        await _safe_edit(placeholder, str(exc))
+        return
+    except Exception:
+        log.exception("Faylni o'qib bo'lmadi")
+        await _safe_edit(placeholder, texts.BROKEN_FILE)
+        return
+
+    question = (message.caption or "").strip() or default_prompt
+    content = [block, {"type": "text", "text": question}]
+
+    await _safe_edit(placeholder, texts.THINKING)
+    await _answer(
+        message, placeholder, claude, history,
+        content, f"{texts.media_marker(name)} {question}",
+    )
+
+
+@router.message()
+async def on_other(message: Message) -> None:
+    """Ovoz, video, stiker — hozircha bularni o'qiy olmaymiz."""
+    await message.answer(texts.ONLY_TEXT)
+
+
+class _MediaError(Exception):
+    """Foydalanuvchiga aytiladigan, kutilgan xatolik."""
+
+
+async def _read_attachment(message: Message, bot: Bot, placeholder: Message):
+    """Telegram faylini Claude bloki qilib qaytaradi: (blok, nom, savol)."""
+    document = message.document
+    if message.photo:
+        # Telegram bir rasmning bir necha o'lchamini beradi — eng kattasi oxirida.
+        photo = message.photo[-1]
+        _check_size(photo.file_size)
+        data = await _download(bot, photo.file_id)
+        return media.image_block(data, "image/jpeg"), "rasm", texts.DEFAULT_IMAGE_PROMPT
+
+    name = document.file_name or "fayl"
+    flavour = media.kind(document.mime_type, name)
+    if flavour == "unsupported":
+        raise _MediaError(texts.UNSUPPORTED_FILE)
+
+    _check_size(document.file_size)
+    data = await _download(bot, document.file_id)
+
+    if flavour == "image":
+        return media.image_block(data, document.mime_type or ""), name, texts.DEFAULT_IMAGE_PROMPT
+    if flavour == "pdf":
+        return media.pdf_block(data), name, texts.DEFAULT_FILE_PROMPT
+
+    await _safe_edit(placeholder, texts.READING_FILE)
+    if flavour == "text":
+        body = data.decode("utf-8", errors="replace")
+    elif flavour == "docx":
+        body = media.extract_docx(data)
+    else:
+        body = media.extract_xlsx(data)
+
+    if not body.strip():
+        raise _MediaError(texts.EMPTY_FILE)
+    return media.text_block(body, name), name, texts.DEFAULT_FILE_PROMPT
+
+
+def _check_size(size: int | None) -> None:
+    if size and size > config.MAX_FILE_MB * 1024 * 1024:
+        raise _MediaError(texts.file_too_big(config.MAX_FILE_MB))
+
+
+async def _download(bot: Bot, file_id: str) -> bytes:
+    info = await bot.get_file(file_id)
+    buffer = await bot.download_file(info.file_path)
+    return buffer.read()
+
+
+async def _answer(
+    message: Message,
+    placeholder: Message,
+    claude: ClaudeClient,
+    history: ChatHistory,
+    content,
+    marker: str,
+) -> None:
+    """Savolni Claude'ga yuborib, javobni chatga yetkazadi.
+
+    `content` matn ham, rasm/fayl bloklari ro'yxati ham bo'lishi mumkin;
+    `marker` esa tarixda qoladigan qisqa yozuv.
+    """
+    chat_id = message.chat.id
+    conversation = history.get(chat_id) + [{"role": "user", "content": content}]
     progress, status = _progress(placeholder)
 
     try:
@@ -105,7 +216,7 @@ async def on_question(
         await _safe_edit(placeholder, texts.EMPTY_ANSWER)
         return
 
-    history.add(chat_id, "user", question)
+    history.add(chat_id, "user", content, marker=marker)
     history.add(chat_id, "assistant", reply.text)
 
     answer = reply.text
@@ -117,12 +228,6 @@ async def on_question(
         "chat=%s tokens in=%s out=%s model=%s",
         chat_id, reply.input_tokens, reply.output_tokens, reply.model,
     )
-
-
-@router.message()
-async def on_other(message: Message) -> None:
-    """Rasm, ovoz, fayl — hozircha matndan boshqasini o'qimaymiz."""
-    await message.answer(texts.ONLY_TEXT)
 
 
 def _progress(placeholder: Message):

@@ -272,8 +272,12 @@ class _StubUser:
 class _StubMessage:
     """Telegram xabarining eng kerakli qismi — aiogram'siz."""
 
-    def __init__(self, text="", chat_id=1, user_id=1, outbox=None, edits=None):
+    def __init__(self, text="", chat_id=1, user_id=1, outbox=None, edits=None,
+                 photo=None, document=None, caption=None):
         self.text = text
+        self.photo = photo
+        self.document = document
+        self.caption = caption
         self.chat = _StubChat(chat_id)
         self.from_user = _StubUser(user_id)
         # Ro'yxatlar «chat» bo'ylab umumiy: placeholder alohida obyekt bo'lsa ham
@@ -293,11 +297,19 @@ class _StubMessage:
 
 
 class _StubBot:
-    def __init__(self):
+    def __init__(self, payload=b""):
         self.actions = []
+        self.payload = payload
 
     async def send_chat_action(self, chat_id, action):
         self.actions.append((chat_id, action))
+
+    async def get_file(self, file_id):
+        return type("Info", (), {"file_path": f"files/{file_id}"})()
+
+    async def download_file(self, path):
+        import io
+        return io.BytesIO(self.payload)
 
 
 class _StubClaude:
@@ -417,6 +429,127 @@ def test_thinking_can_be_turned_off_for_older_models(monkeypatch):
     asyncio.run(client.ask([{"role": "user", "content": "hi"}]))
 
     assert "thinking" not in captured
+
+
+# --- rasm va fayl -----------------------------------------------------------
+
+def test_kind_recognises_what_we_can_read():
+    from claude_bot import media
+
+    assert media.kind("image/png", "a.png") == "image"
+    assert media.kind("application/pdf", "hisobot.pdf") == "pdf"
+    assert media.kind("text/csv", "data.csv") == "text"
+    assert media.kind(media.DOCX_TYPE, "shartnoma.docx") == "docx"
+    assert media.kind(media.XLSX_TYPE, "byudjet.xlsx") == "xlsx"
+    assert media.kind("video/mp4", "klip.mp4") == "unsupported"
+
+
+def test_kind_falls_back_to_the_file_name():
+    from claude_bot import media
+
+    # Telegram mime bermasligi mumkin — kengaytma bo'yicha topamiz.
+    assert media.kind(None, "hisobot.docx") == "docx"
+    assert media.kind("", "eslatma.txt") == "text"
+    assert media.kind("application/octet-stream", "jadval.xlsx") == "xlsx"
+
+
+def test_image_block_is_base64_with_media_type():
+    import base64
+
+    from claude_bot import media
+
+    block = media.image_block(b"\x89PNG-fake", "image/png")
+    assert block["type"] == "image"
+    assert block["source"]["media_type"] == "image/png"
+    assert base64.standard_b64decode(block["source"]["data"]) == b"\x89PNG-fake"
+
+
+def test_unknown_image_type_falls_back_to_jpeg():
+    from claude_bot import media
+
+    block = media.image_block(b"data", "image/heic")
+    assert block["source"]["media_type"] == "image/jpeg"
+
+
+def test_pdf_becomes_a_document_block():
+    from claude_bot import media
+
+    block = media.pdf_block(b"%PDF-1.4")
+    assert block["type"] == "document"
+    assert block["source"]["media_type"] == media.PDF_TYPE
+
+
+def test_long_text_file_is_clipped_and_says_so():
+    from claude_bot import media
+
+    block = media.text_block("x" * (media.MAX_TEXT_CHARS + 500), "katta.txt")
+    assert "katta.txt" in block["text"]
+    assert "qisqartirildi" in block["text"]
+    assert len(block["text"]) < media.MAX_TEXT_CHARS + 500
+
+
+def test_word_document_text_is_extracted():
+    docx = pytest.importorskip("docx")
+    import io
+
+    from claude_bot import media
+
+    document = docx.Document()
+    document.add_paragraph("Shartnoma raqami 42")
+    table = document.add_table(rows=1, cols=2)
+    table.rows[0].cells[0].text = "Summa"
+    table.rows[0].cells[1].text = "1000"
+    buffer = io.BytesIO()
+    document.save(buffer)
+
+    body = media.extract_docx(buffer.getvalue())
+    assert "Shartnoma raqami 42" in body
+    assert "Summa | 1000" in body
+
+
+def test_excel_sheet_text_is_extracted():
+    openpyxl = pytest.importorskip("openpyxl")
+    import io
+
+    from claude_bot import media
+
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.title = "Byudjet"
+    sheet.append(["Oy", "Xarajat"])
+    sheet.append(["Yanvar", 1500])
+    buffer = io.BytesIO()
+    book.save(buffer)
+
+    body = media.extract_xlsx(buffer.getvalue())
+    assert "## Varaq: Byudjet" in body
+    assert "Yanvar\t1500" in body
+
+
+def test_only_the_newest_file_stays_in_context():
+    history = ChatHistory()
+    first = [{"type": "image", "source": {"data": "aaa"}}]
+    second = [{"type": "image", "source": {"data": "bbb"}}]
+
+    history.add(1, "user", first, marker="[rasm-1 yuborildi]")
+    history.add(1, "assistant", "birinchi javob")
+    history.add(1, "user", second, marker="[rasm-2 yuborildi]")
+
+    messages = history.get(1)
+    # Eski rasm o'z belgisiga almashdi, yangisi bloklarcha turibdi.
+    assert messages[0]["content"] == "[rasm-1 yuborildi]"
+    assert messages[2]["content"] == second
+
+
+def test_plain_text_history_is_untouched_by_markers():
+    history = ChatHistory()
+    history.add(1, "user", "oddiy savol")
+    history.add(1, "assistant", "javob")
+    history.add(1, "user", "yana savol")
+
+    assert [item["content"] for item in history.get(1)] == [
+        "oddiy savol", "javob", "yana savol",
+    ]
 
 
 # --- qurollar ---------------------------------------------------------------
@@ -581,6 +714,109 @@ def test_webhook_app_serves_health_and_telegram_routes():
 
     assert ("GET", "/") in routes
     assert ("POST", "/telegram/abc") in routes
+
+
+# --- rasm/fayl handler'i ----------------------------------------------------
+
+def _run_media(reply, message, payload=b"", history=None):
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import main
+
+    claude = _StubClaude(reply)
+    history = history or ChatHistory()
+    asyncio.run(
+        main.on_media(
+            message,
+            bot=_StubBot(payload),
+            claude=claude,
+            history=history,
+            limiter=RateLimiter(per_minute=0),
+        )
+    )
+    return claude, history
+
+
+def test_photo_reaches_claude_as_an_image_with_the_caption():
+    photo = [type("Size", (), {"file_id": "abc", "file_size": 1024})()]
+    message = _StubMessage(photo=photo, caption="Bu jadvalda xato bormi?")
+
+    claude, history = _run_media(_reply("Xato yo'q"), message, payload=b"jpeg-bytes")
+
+    content = claude.seen[-1]["content"]
+    assert content[0]["type"] == "image"
+    assert content[1]["text"] == "Bu jadvalda xato bormi?"
+    # Tarixda rasm emas, uning belgisi qoladi — keyingi savollar arzon bo'lsin.
+    assert "yuborildi" in history.get(1)[0]["content"]
+
+
+def test_photo_without_a_caption_gets_a_default_question():
+    from claude_bot import texts
+
+    photo = [type("Size", (), {"file_id": "abc", "file_size": 10})()]
+    message = _StubMessage(photo=photo)
+
+    claude, _ = _run_media(_reply("javob"), message, payload=b"x")
+
+    assert claude.seen[-1]["content"][1]["text"] == texts.DEFAULT_IMAGE_PROMPT
+
+
+def test_pdf_document_becomes_a_document_block():
+    document = type("Doc", (), {
+        "file_id": "f1", "file_size": 2048,
+        "file_name": "hisobot.pdf", "mime_type": "application/pdf",
+    })()
+    message = _StubMessage(document=document, caption="Xulosa qil")
+
+    claude, _ = _run_media(_reply("xulosa"), message, payload=b"%PDF-1.4")
+
+    assert claude.seen[-1]["content"][0]["type"] == "document"
+
+
+def test_unsupported_file_is_refused_before_any_download():
+    from claude_bot import texts
+
+    document = type("Doc", (), {
+        "file_id": "f2", "file_size": 100,
+        "file_name": "klip.mp4", "mime_type": "video/mp4",
+    })()
+    message = _StubMessage(document=document)
+
+    claude, _ = _run_media(_reply("javob"), message)
+
+    assert claude.seen is None
+    assert texts.UNSUPPORTED_FILE in message.edits[-1]
+
+
+def test_oversized_file_is_refused():
+    from claude_bot import config
+
+    document = type("Doc", (), {
+        "file_id": "f3", "file_size": (config.MAX_FILE_MB + 1) * 1024 * 1024,
+        "file_name": "katta.pdf", "mime_type": "application/pdf",
+    })()
+    message = _StubMessage(document=document)
+
+    claude, _ = _run_media(_reply("javob"), message)
+
+    assert claude.seen is None
+    assert "katta" in message.edits[-1]
+
+
+def test_empty_text_file_is_explained():
+    from claude_bot import texts
+
+    document = type("Doc", (), {
+        "file_id": "f4", "file_size": 3,
+        "file_name": "bosh.txt", "mime_type": "text/plain",
+    })()
+    message = _StubMessage(document=document)
+
+    claude, _ = _run_media(_reply("javob"), message, payload=b"   ")
+
+    assert claude.seen is None
+    assert message.edits[-1] == texts.EMPTY_FILE
 
 
 def test_friendly_error_maps_known_failures():
