@@ -16,7 +16,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, BufferedInputFile, Message
 
-from claude_bot import config, formatting, media, pdf, pricing, texts, tools, webhook
+from claude_bot import config, files, formatting, media, pdf, pricing, texts, tools, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter, UsageTracker
 
@@ -250,9 +250,21 @@ async def _answer(
     chat_id = message.chat.id
     conversation = history.get(chat_id) + [{"role": "user", "content": content}]
     progress, status = _progress(placeholder)
+    made: list[files.Artifact] = []
+
+    async def on_tool(name: str, payload) -> str:
+        """Model so'ragan faylni yasaymiz; yuborishni javobdan keyin qilamiz."""
+        if name != files.TOOL["name"]:
+            raise files.BadInput(f"«{name}» degan qurol yo'q.")
+        if len(made) >= files.MAX_FILES:
+            raise files.BadInput("Bitta javobda bunchadan ko'p fayl yasalmaydi.")
+        await _safe_edit(placeholder, texts.MAKING_FILE)
+        note, artifact = files.run(payload)
+        made.append(artifact)
+        return note
 
     try:
-        reply = await claude.ask(conversation, progress, status)
+        reply = await claude.ask(conversation, progress, status, on_tool)
     except Exception as exc:  # bitta savol butun botni to'xtatmasligi kerak
         log.exception("Claude so'rovi muvaffaqiyatsiz")
         await _safe_edit(placeholder, friendly_error(exc))
@@ -279,6 +291,10 @@ async def _answer(
         message, placeholder, answer,
         footer=texts.cost_line(pricing.money(spent)) if config.SHOW_COST and spent else "",
     )
+    for artifact in made:
+        await message.answer_document(
+            BufferedInputFile(artifact.data, filename=artifact.filename)
+        )
     log.info(
         "chat=%s tokens in=%s out=%s model=%s narx=%.4f$",
         chat_id, reply.input_tokens, reply.output_tokens, reply.model, spent,
@@ -406,6 +422,7 @@ async def main() -> None:
         use_thinking=config.USE_THINKING,
         tool_mode=config.TOOLS,
         max_tool_uses=config.MAX_TOOL_USES,
+        client_tools=[files.TOOL] if config.MAKE_FILES else [],
     )
 
     bot = Bot(token)

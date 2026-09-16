@@ -46,10 +46,11 @@ SYSTEM_PROMPT = os.getenv(
     "tilda yozsa (o'zbek, rus, ingliz), o'sha tilda javob ber. Javoblar aniq "
     "va qisqa bo'lsin — Telegram xabari uzun bo'lmagani ma'qul. Jadval o'rniga "
     "oddiy ro'yxat ishlat, kod kerak bo'lsa ``` bilan blokka ol.\n\n"
-    "Sen fayl yarata olmaysan va yubora olmaysan. Hech qachon «fayl tayyor» "
-    "yoki «mana fayl» deb aytma — bu yolg'on bo'ladi. Foydalanuvchi PDF yoki "
-    "hujjat so'rasa, mazmunni matn ko'rinishida yozib ber va «shu javobni "
-    "PDF qilish uchun /pdf yozing» deb eslat.",
+    "Fayl kerak bo'lsa `create_file` qurolidan foydalan — Excel, Word, PDF, "
+    "CSV yoki matn. Fayl faqat shu qurol orqali yasaladi: qurolni "
+    "chaqirmasdan turib «fayl tayyor» yoki «mana fayl» deb aytma, chunki "
+    "hech narsa yuborilmagan bo'ladi. Jadval ko'rinishidagi ma'lumotni "
+    "Excel qilib ber, matnli hujjatni Word yoki PDF qilib ber.",
 ).strip()
 
 # Claude tomonida ishlaydigan qurollar: `web` — internetdan qidirish va
@@ -61,6 +62,11 @@ if TOOLS not in ("web", "code", "off"):
 
 # Bitta javob ichida qurol nechta marta ishlatilsin.
 MAX_TOOL_USES = int(os.getenv("CLAUDE_MAX_TOOL_USES", "5"))
+
+# Claude foydalanuvchiga fayl (Excel, Word, PDF, CSV) yasab bera olsinmi.
+MAKE_FILES = os.getenv("CLAUDE_MAKE_FILES", "1").strip().lower() not in {
+    "0", "false", "no", "off",
+}
 
 # Har javob oxirida taxminiy narxni ko'rsatish. Xarajatni kuzatishning eng
 # oson yo'li — o'chirish uchun CLAUDE_SHOW_COST=0.
