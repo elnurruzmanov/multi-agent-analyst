@@ -4,6 +4,7 @@
 *.py
 agents/
 bot/
+claude_bot/
 db/
 evaluation/
 tests/
