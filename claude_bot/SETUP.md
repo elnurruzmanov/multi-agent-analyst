@@ -18,6 +18,11 @@ yechadi. Buning evaziga javoblar siz Claude bilan to'g'ridan-to'g'ri
 gaplashgandagidek sifatli bo'ladi — hech qanday «arzonlashtirilgan» versiya
 emas.
 
+> ⚠️ **claude.ai dagi $20 lik Pro obuna bu yerda ishlamaydi.** Anthropic'da
+> ikkita alohida hamyon bor: Pro obunasi saytdagi va ilovadagi suhbat uchun,
+> API krediti esa dastur (bizning bot) uchun. Birini ikkinchisiga o'tkazish
+> imkoni yo'q — bot uchun alohida kredit sotib olinadi.
+
 **2. Hosting — bot yashaydigan joy. Tanlov shu yerda.**
 Bepul tarifda bot 15 daqiqa jimlikdan keyin uxlab qoladi va birinchi xabar
 ~1 daqiqa kechikadi. $7/oy da umuman uxlamaydi — «qotmaydigan» bot shu.
@@ -125,18 +130,24 @@ Variable** bosib, uchtasini qo'shing:
 **Create Web Service** bosing. Birinchi build 3–6 daqiqa oladi. Logs oynasida
 `Bot ishga tushdi` qatorini ko'rsangiz — hammasi joyida.
 
-**3.6. Servis manzilini botga ayting.**
-Sahifa tepasida `https://claude-bot-xxxx.onrender.com` ko'rinishidagi manzil
-paydo bo'ladi — uni nusxalang. Keyin **Environment → Add Environment
+**3.6. Webhook o'rnatilganini tekshiring.**
+Odatda bu qadam kerak bo'lmaydi: Render web servisga o'z manzilini
+avtomatik beradi va bot uni o'zi oladi. Logs'da shunga o'xshash qator
+bo'lsa — hammasi joyida:
+
+```
+Webhook rejimi: https://claude-bot-xxxx.onrender.com/telegram/… , port 10000
+```
+
+Uning o'rniga `Polling rejimi` deb yozilgan bo'lsa, manzilni qo'lda berasiz.
+Sahifa tepasidagi manzilni nusxalab, **Environment → Add Environment
 Variable**:
 
 | Nomi | Qiymati |
 | --- | --- |
 | `CLAUDE_WEBHOOK_URL` | `https://claude-bot-xxxx.onrender.com` |
 
-**Save changes** — servis o'zi qayta deploy bo'ladi. Endi Telegram xabar
-kelganda shu manzilga o'zi murojaat qiladi, bu esa uxlab qolgan servisni
-uyg'otadi ham.
+**Save changes** — servis o'zi qayta deploy bo'ladi.
 
 > Manzil `https://` bilan boshlanib, oxirida `/` **bo'lmasligi** kerak.
 
