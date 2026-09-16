@@ -8,3 +8,4 @@ db/bank.db
 bot/data/
 evaluation/eval_results*.csv
 .claude/settings.local.json
+claude_bot/data/

@@ -566,6 +566,245 @@ def test_plain_text_history_is_untouched_by_markers():
     ]
 
 
+# --- jadval bo'yicha ishlash ------------------------------------------------
+
+def _task(hour=8, minute=0, days="daily", last_run=None, prompt="yangiliklar"):
+    from claude_bot.tasks import Task
+
+    return Task(1, 100, prompt, hour, minute, days, last_run)
+
+
+def _at(year=2026, month=9, day=16, hour=8, minute=0):
+    from datetime import datetime, timedelta, timezone
+
+    return datetime(year, month, day, hour, minute, tzinfo=timezone(timedelta(hours=5)))
+
+
+def test_task_runs_at_its_time_and_not_before():
+    from claude_bot.tasks import is_due
+
+    assert is_due(_task(hour=8), _at(hour=8, minute=0))
+    assert is_due(_task(hour=8), _at(hour=8, minute=30))
+    assert not is_due(_task(hour=8), _at(hour=7, minute=59))
+
+
+def test_task_runs_once_a_day():
+    from claude_bot.tasks import is_due
+
+    # 2026-09-16 — chorshanba.
+    already = _task(hour=8, last_run="2026-09-16")
+    assert not is_due(already, _at(hour=9))
+    assert is_due(already, _at(day=17, hour=9))
+
+
+def test_late_wake_still_runs_but_not_at_midnight():
+    from claude_bot.tasks import is_due
+
+    task = _task(hour=8)
+    # Servis uxlab qolib, 12:00 da uyg'ondi — ertalabki vazifa baribir kerak.
+    assert is_due(task, _at(hour=12), grace_hours=6)
+    # Kechqurun esa ertalabki xulosa keraksiz.
+    assert not is_due(task, _at(hour=22), grace_hours=6)
+
+
+def test_weekday_tasks_respect_the_day():
+    from claude_bot.tasks import is_due
+
+    # 16-sentabr 2026 — chorshanba (weekday=2), 19-si — shanba (weekday=5).
+    workday = _task(days="workdays")
+    assert is_due(workday, _at(day=16, hour=9))
+    assert not is_due(workday, _at(day=19, hour=9))
+
+    monday_only = _task(days="0")
+    assert not is_due(monday_only, _at(day=16, hour=9))
+    assert is_due(monday_only, _at(day=21, hour=9))  # 21-si — dushanba
+
+
+def test_days_are_understood_in_uzbek_and_english():
+    from claude_bot import tasks
+
+    assert tasks.parse_days(None) == tasks.DAILY
+    assert tasks.parse_days("har kuni") == tasks.DAILY
+    assert tasks.parse_days("ish kunlari") == tasks.WORKDAYS
+    assert tasks.parse_days("dushanba, juma") == "0,4"
+    assert tasks.parse_days("mon,wed") == "0,2"
+    assert tasks.parse_days("allaqanday matn") == tasks.DAILY
+
+
+def test_time_is_parsed_or_refused_clearly():
+    from claude_bot import tasks
+
+    assert tasks.parse_time("08:00") == (8, 0)
+    assert tasks.parse_time("8") == (8, 0)
+    assert tasks.parse_time("9.30") == (9, 30)
+    with pytest.raises(ValueError):
+        tasks.parse_time("ertalab")
+    with pytest.raises(ValueError):
+        tasks.parse_time("25:00")
+
+
+def test_task_description_reads_like_a_sentence():
+    assert _task(hour=8, minute=5).when == "har kuni 08:05"
+    assert _task(days="workdays").when == "ish kunlari 08:00"
+    assert _task(days="0,4").when == "dushanba, juma 08:00"
+
+
+def test_tasks_survive_a_restart(tmp_path):
+    from claude_bot.tasks import TaskStore
+
+    store = TaskStore(tmp_path / "tasks.db")
+    store.add(100, "yangiliklarni yubor", 8, 0, "daily")
+    store.close()
+
+    # Bot qayta ishga tushdi — vazifa joyida bo'lishi kerak.
+    again = TaskStore(tmp_path / "tasks.db")
+    items = again.for_chat(100)
+    assert len(items) == 1
+    assert items[0].prompt == "yangiliklarni yubor"
+
+
+def test_tasks_are_per_chat_and_removable(tmp_path):
+    from claude_bot.tasks import TaskStore
+
+    store = TaskStore(tmp_path / "tasks.db")
+    mine = store.add(100, "meniki", 8, 0, "daily")
+    store.add(200, "boshqasi", 9, 0, "daily")
+
+    # Boshqa chat meni vazifamni o'chira olmasin.
+    assert not store.remove(200, mine.id)
+    assert store.remove(100, mine.id)
+    assert store.for_chat(100) == []
+    assert len(store.for_chat(200)) == 1
+
+
+def test_a_chat_cannot_pile_up_tasks(tmp_path):
+    from claude_bot import tasks
+
+    store = tasks.TaskStore(tmp_path / "tasks.db")
+    for index in range(tasks.MAX_TASKS_PER_CHAT):
+        store.add(100, f"vazifa {index}", 8, 0, "daily")
+
+    with pytest.raises(ValueError):
+        store.add(100, "ortiqcha", 9, 0, "daily")
+
+
+def test_due_task_is_run_and_marked(tmp_path):
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import scheduler, tasks
+
+    store = tasks.TaskStore(tmp_path / "tasks.db")
+    store.add(100, "kursni yubor", 0, 0, "daily")
+
+    sent = []
+
+    class _Bot:
+        async def send_message(self, chat_id, text, **kwargs):
+            sent.append((chat_id, text))
+
+    class _Claude:
+        async def ask(self, messages, *args, **kwargs):
+            return _reply("Kurs 11 774 so'm")
+
+    count = asyncio.run(scheduler.run_due(
+        _Bot(), _Claude(), store, tz_offset=5, grace_hours=24,
+    ))
+
+    assert count == 1
+    assert sent[0][0] == 100
+    assert any("11 774" in text for _, text in sent)
+    # Ikkinchi marta bajarilmasin.
+    assert asyncio.run(scheduler.run_due(
+        _Bot(), _Claude(), store, tz_offset=5, grace_hours=24,
+    )) == 0
+
+
+def test_failed_task_still_reaches_the_user(tmp_path):
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import scheduler, tasks
+
+    store = tasks.TaskStore(tmp_path / "tasks.db")
+    store.add(100, "nimadir", 0, 0, "daily")
+
+    sent = []
+
+    class _Bot:
+        async def send_message(self, chat_id, text, **kwargs):
+            sent.append(text)
+
+    class _Claude:
+        async def ask(self, messages, *args, **kwargs):
+            raise RuntimeError("tarmoq yiqildi")
+
+    asyncio.run(scheduler.run_due(_Bot(), _Claude(), store, tz_offset=5, grace_hours=24))
+
+    # Jim qolgandan ko'ra, xatolikni aytgan yaxshi.
+    assert any("❌" in text for text in sent)
+
+
+def test_schedule_tool_adds_lists_and_cancels(tmp_path):
+    pytest.importorskip("aiogram")
+    from claude_bot import main, tasks
+
+    store = tasks.TaskStore(tmp_path / "tasks.db")
+
+    added = main._run_task_tool(
+        "schedule_task",
+        {"time": "08:00", "days": "ish kunlari", "prompt": "Yangiliklarni xulosa qil"},
+        store, 100,
+    )
+    assert "ish kunlari 08:00" in added
+
+    listed = main._run_task_tool("list_tasks", {}, store, 100)
+    assert "Yangiliklarni xulosa qil" in listed
+
+    task_id = store.for_chat(100)[0].id
+    assert "o'chirildi" in main._run_task_tool("cancel_task", {"id": task_id}, store, 100)
+    assert store.for_chat(100) == []
+
+
+def test_schedule_tool_explains_bad_input(tmp_path):
+    pytest.importorskip("aiogram")
+    from claude_bot import files, main, tasks
+
+    store = tasks.TaskStore(tmp_path / "tasks.db")
+
+    with pytest.raises(files.BadInput):
+        main._run_task_tool("schedule_task", {"time": "ertalab", "prompt": "x"}, store, 100)
+    with pytest.raises(files.BadInput):
+        main._run_task_tool("schedule_task", {"time": "08:00", "prompt": " "}, store, 100)
+
+
+def test_tick_endpoint_needs_the_key():
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import webhook
+
+    calls = []
+
+    async def on_tick():
+        calls.append(1)
+        return 2
+
+    handler = webhook._make_tick_handler(on_tick, "maxfiy")
+
+    class _Request:
+        def __init__(self, key):
+            self.query = {"key": key} if key else {}
+
+    denied = asyncio.run(handler(_Request("boshqa")))
+    assert denied.status == 403
+    assert calls == []
+
+    allowed = asyncio.run(handler(_Request("maxfiy")))
+    assert "ran 2" in allowed.text
+    assert calls == [1]
+
+
 # --- fayl yasash quroli -----------------------------------------------------
 
 def test_excel_is_built_from_rows():

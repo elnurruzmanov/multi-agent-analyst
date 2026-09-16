@@ -39,10 +39,35 @@ async def _health(_request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
-def build_app(bot: Bot, dispatcher: Dispatcher, *, path: str, secret: str) -> web.Application:
+def _make_tick_handler(on_tick, secret: str):
+    """Tashqi cron xizmati uchun: `/tasks/run?key=…`.
+
+    Bepul tarifda servis uxlab qoladi va ichki soat ham to'xtaydi. Tashqi
+    ping shu manzilni chaqirsa, servis uyg'onadi va kechikkan vazifalar
+    o'sha zahoti bajariladi.
+    """
+    async def handler(request: web.Request) -> web.Response:
+        if request.query.get("key") != secret:
+            return web.Response(status=403, text="forbidden")
+        count = await on_tick()
+        return web.Response(text=f"ran {count}")
+
+    return handler
+
+
+def build_app(
+    bot: Bot,
+    dispatcher: Dispatcher,
+    *,
+    path: str,
+    secret: str,
+    on_tick=None,
+) -> web.Application:
     app = web.Application()
     app.router.add_get("/", _health)
     app.router.add_get("/healthz", _health)
+    if on_tick is not None:
+        app.router.add_get("/tasks/run", _make_tick_handler(on_tick, secret))
     SimpleRequestHandler(
         dispatcher=dispatcher, bot=bot, secret_token=secret
     ).register(app, path=path)
@@ -57,10 +82,11 @@ async def run(
     base_url: str,
     port: int,
     token: str,
+    on_tick=None,
 ) -> None:
     path = secret_path(token)
     secret = secret_token(token)
-    app = build_app(bot, dispatcher, path=path, secret=secret)
+    app = build_app(bot, dispatcher, path=path, secret=secret, on_tick=on_tick)
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -74,6 +100,10 @@ async def run(
     )
     # Manzilning maxfiy qismini logga chiqarmaymiz.
     log.info("Webhook rejimi: %s/telegram/… , port %s", base_url, port)
+    if on_tick is not None:
+        # Bu manzilni tashqi cron xizmatiga berish kerak, shuning uchun
+        # to'liq ko'rsatamiz — u faylni emas, faqat jadvalni ishga tushiradi.
+        log.info("Jadval turtkisi: %s/tasks/run?key=%s", base_url, secret)
 
     try:
         await asyncio.Event().wait()  # Telegram murojaatlarini kutamiz

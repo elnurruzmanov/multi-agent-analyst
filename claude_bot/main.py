@@ -16,7 +16,9 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, BufferedInputFile, Message
 
-from claude_bot import config, files, formatting, media, pdf, pricing, texts, tools, webhook
+from claude_bot import (
+    config, files, formatting, media, pdf, pricing, scheduler, tasks, texts, tools, webhook,
+)
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter, UsageTracker
 
@@ -93,6 +95,15 @@ async def cmd_pdf(message: Message, history: ChatHistory) -> None:
     await _safe_edit(note, texts.PDF_SENT)
 
 
+@router.message(Command("tasks"))
+async def cmd_tasks(message: Message, schedule: tasks.TaskStore | None = None) -> None:
+    items = schedule.for_chat(message.chat.id) if schedule else []
+    await message.answer(
+        texts.task_list(items) if items else texts.NO_TASKS,
+        parse_mode=ParseMode.HTML,
+    )
+
+
 @router.message(Command("model"))
 async def cmd_model(message: Message, history: ChatHistory) -> None:
     await message.answer(
@@ -114,6 +125,7 @@ async def on_question(
     history: ChatHistory,
     limiter: RateLimiter,
     usage: UsageTracker,
+    schedule: tasks.TaskStore | None = None,
 ) -> None:
     user_id = message.from_user.id
     if not config.is_allowed(user_id):
@@ -132,7 +144,7 @@ async def on_question(
 
     await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     placeholder = await message.answer(texts.THINKING)
-    await _answer(message, placeholder, claude, history, usage, question, question)
+    await _answer(message, placeholder, claude, history, usage, schedule, question, question)
 
 
 @router.message(F.photo | F.document)
@@ -143,6 +155,7 @@ async def on_media(
     history: ChatHistory,
     limiter: RateLimiter,
     usage: UsageTracker,
+    schedule: tasks.TaskStore | None = None,
 ) -> None:
     """Rasm yoki fayl: yuklab olamiz, o'qiymiz, savol bilan birga yuboramiz."""
     user_id = message.from_user.id
@@ -171,7 +184,7 @@ async def on_media(
 
     await _safe_edit(placeholder, texts.THINKING)
     await _answer(
-        message, placeholder, claude, history, usage,
+        message, placeholder, claude, history, usage, schedule,
         content, f"{texts.media_marker(name)} {question}",
     )
 
@@ -180,6 +193,40 @@ async def on_media(
 async def on_other(message: Message) -> None:
     """Ovoz, video, stiker — hozircha bularni o'qiy olmaymiz."""
     await message.answer(texts.ONLY_TEXT)
+
+
+_TASK_TOOLS = {tool["name"] for tool in tasks.TOOLS}
+
+
+def _run_task_tool(name: str, payload, store, chat_id: int) -> str:
+    """Jadval qurollari — sof, tez ishlar, shuning uchun async emas."""
+    payload = payload if isinstance(payload, dict) else {}
+
+    if name == tasks.LIST_TOOL["name"]:
+        items = store.for_chat(chat_id)
+        if not items:
+            return "Rejalashtirilgan vazifa yo'q."
+        return "\n".join(f"#{task.id} — {task.when} — {task.prompt}" for task in items)
+
+    if name == tasks.CANCEL_TOOL["name"]:
+        try:
+            task_id = int(payload.get("id"))
+        except (TypeError, ValueError):
+            raise files.BadInput("`id` butun son bo'lishi kerak.") from None
+        if store.remove(chat_id, task_id):
+            return f"#{task_id} vazifasi o'chirildi."
+        return f"#{task_id} topilmadi — ro'yxatni list_tasks bilan tekshir."
+
+    # schedule_task
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt:
+        raise files.BadInput("`prompt` bo'sh bo'lmasin.")
+    try:
+        hour, minute = tasks.parse_time(payload.get("time"))
+        task = store.add(chat_id, prompt, hour, minute, tasks.parse_days(payload.get("days")))
+    except ValueError as exc:
+        raise files.BadInput(str(exc)) from None
+    return f"Qo'shildi: #{task.id} — {task.when}."
 
 
 class _MediaError(Exception):
@@ -239,6 +286,7 @@ async def _answer(
     claude: ClaudeClient,
     history: ChatHistory,
     usage: UsageTracker,
+    schedule: tasks.TaskStore | None,
     content,
     marker: str,
 ) -> None:
@@ -253,15 +301,17 @@ async def _answer(
     made: list[files.Artifact] = []
 
     async def on_tool(name: str, payload) -> str:
-        """Model so'ragan faylni yasaymiz; yuborishni javobdan keyin qilamiz."""
-        if name != files.TOOL["name"]:
-            raise files.BadInput(f"«{name}» degan qurol yo'q.")
-        if len(made) >= files.MAX_FILES:
-            raise files.BadInput("Bitta javobda bunchadan ko'p fayl yasalmaydi.")
-        await _safe_edit(placeholder, texts.MAKING_FILE)
-        note, artifact = files.run(payload)
-        made.append(artifact)
-        return note
+        """Model so'ragan ishni bajaramiz: fayl yasash yoki jadval bilan ishlash."""
+        if name == files.TOOL["name"]:
+            if len(made) >= files.MAX_FILES:
+                raise files.BadInput("Bitta javobda bunchadan ko'p fayl yasalmaydi.")
+            await _safe_edit(placeholder, texts.MAKING_FILE)
+            note, artifact = files.run(payload)
+            made.append(artifact)
+            return note
+        if schedule is not None and name in _TASK_TOOLS:
+            return _run_task_tool(name, payload, schedule, chat_id)
+        raise files.BadInput(f"«{name}» degan qurol yo'q.")
 
     try:
         reply = await claude.ask(conversation, progress, status, on_tool)
@@ -380,6 +430,16 @@ async def _deliver(
                 await message.answer(plain, disable_web_page_preview=True)
 
 
+def _tick(bot: Bot, claude: ClaudeClient, schedule: tasks.TaskStore):
+    """Tashqi ping kelganda kechikkan vazifalarni bajaradigan funksiya."""
+    async def tick() -> int:
+        return await scheduler.run_due(
+            bot, claude, schedule,
+            tz_offset=config.TZ_OFFSET, grace_hours=config.TASK_GRACE_HOURS,
+        )
+    return tick
+
+
 def _strip_tags(html: str) -> str:
     """HTML o'tmagan holat uchun teglarni olib tashlaydi."""
     return re.sub(r"<[^>]+>", "", html)
@@ -391,6 +451,7 @@ async def _set_commands(bot: Bot) -> None:
         BotCommand(command="new", description="Suhbatni tozalash"),
         BotCommand(command="pdf", description="Oxirgi javobni PDF qilish"),
         BotCommand(command="cost", description="Qancha sarflandi"),
+        BotCommand(command="tasks", description="Rejalashtirilgan vazifalar"),
         BotCommand(command="model", description="Qaysi model ishlayapti"),
         BotCommand(command="id", description="Telegram ID ni ko'rsatish"),
         BotCommand(command="help", description="Yordam"),
@@ -422,8 +483,15 @@ async def main() -> None:
         use_thinking=config.USE_THINKING,
         tool_mode=config.TOOLS,
         max_tool_uses=config.MAX_TOOL_USES,
-        client_tools=[files.TOOL] if config.MAKE_FILES else [],
+        client_tools=(
+            ([files.TOOL] if config.MAKE_FILES else [])
+            + (list(tasks.TOOLS) if config.SCHEDULE_ENABLED else [])
+        ),
     )
+
+    schedule = tasks.TaskStore(config.TASKS_DB) if config.SCHEDULE_ENABLED else None
+    if schedule:
+        log.info("Jadval yoqilgan: %s ta vazifa", len(schedule.all()))
 
     bot = Bot(token)
     dp = Dispatcher(
@@ -431,8 +499,16 @@ async def main() -> None:
         history=ChatHistory(config.HISTORY_LIMIT),
         limiter=RateLimiter(config.RATE_LIMIT_PER_MINUTE),
         usage=UsageTracker(),
+        schedule=schedule,
     )
     dp.include_router(router)
+
+    clock = None
+    if schedule:
+        clock = asyncio.create_task(scheduler.loop(
+            bot, claude, schedule,
+            tz_offset=config.TZ_OFFSET, grace_hours=config.TASK_GRACE_HOURS,
+        ))
 
     try:
         await _set_commands(bot)
@@ -443,7 +519,8 @@ async def main() -> None:
 
         if config.WEBHOOK_URL:
             await webhook.run(
-                bot, dp, base_url=config.WEBHOOK_URL, port=config.PORT, token=token
+                bot, dp, base_url=config.WEBHOOK_URL, port=config.PORT, token=token,
+                on_tick=_tick(bot, claude, schedule) if schedule else None,
             )
         else:
             log.info("Polling rejimi (CLAUDE_WEBHOOK_URL berilmagan)")
@@ -457,6 +534,10 @@ async def main() -> None:
             "@BotFather dan yangisini olish mumkin."
         )
     finally:
+        if clock:
+            clock.cancel()
+        if schedule:
+            schedule.close()
         await claude.aclose()
         await bot.session.close()
 
