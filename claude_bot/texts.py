@@ -13,6 +13,7 @@ WELCOME = (
     "izohiga savolingizni yozing.\n\n"
     "<b>Buyruqlar</b>\n"
     "/new — suhbatni noldan boshlash\n"
+    "/pdf — oxirgi javobni PDF fayl qilish\n"
     "/model — qaysi model ishlayotgani\n"
     "/id — Telegram ID ingiz\n"
     "/help — shu yordam"
@@ -54,6 +55,14 @@ ONLY_TEXT = (
 )
 
 DOWNLOADING = "📥 Faylni olyapman…"
+
+MAKING_PDF = "📄 PDF tayyorlayapman…"
+PDF_READY = "Mana, PDF tayyor."
+PDF_SENT = "📄 PDF yuborildi."
+PDF_FAILED = "❌ PDF yasab bo'lmadi. Javob juda uzun yoki g'alati bo'lishi mumkin."
+NOTHING_TO_EXPORT = (
+    "Hali PDF qiladigan javob yo'q. Avval savol bering, keyin /pdf yozing."
+)
 READING_FILE = "📖 Faylni o'qiyapman…"
 
 # Rasm/fayl izohsiz kelganda beriladigan savol.

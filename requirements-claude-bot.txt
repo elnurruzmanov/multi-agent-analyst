@@ -7,3 +7,5 @@ python-dotenv>=1.0
 # o'zi o'qiydi, bularga esa kutubxona kerak.
 python-docx>=1.1
 openpyxl>=3.1
+# /pdf uchun — javobni PDF fayl qilib yuborish.
+reportlab>=4.0

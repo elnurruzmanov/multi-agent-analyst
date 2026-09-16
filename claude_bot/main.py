@@ -13,9 +13,9 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.enums import ChatAction, ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, Message
+from aiogram.types import BotCommand, BufferedInputFile, Message
 
-from claude_bot import config, formatting, media, texts, tools, webhook
+from claude_bot import config, formatting, media, pdf, texts, tools, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter
 
@@ -45,6 +45,40 @@ async def cmd_id(message: Message) -> None:
         f"Telegram ID: <code>{message.from_user.id}</code>",
         parse_mode=ParseMode.HTML,
     )
+
+
+@router.message(Command("pdf"))
+async def cmd_pdf(message: Message, history: ChatHistory) -> None:
+    """Oxirgi javobni PDF fayl qilib yuboradi.
+
+    Claude fayl yarata olmaydi — PDF shu yerda yig'iladi.
+    """
+    answer = next(
+        (
+            item["content"]
+            for item in reversed(history.get(message.chat.id))
+            if item["role"] == "assistant" and isinstance(item["content"], str)
+        ),
+        None,
+    )
+    if not answer:
+        await message.answer(texts.NOTHING_TO_EXPORT)
+        return
+
+    note = await message.answer(texts.MAKING_PDF)
+    try:
+        title = pdf.title_of(answer)
+        data = pdf.build(answer, title)
+    except Exception:
+        log.exception("PDF yasab bo'lmadi")
+        await _safe_edit(note, texts.PDF_FAILED)
+        return
+
+    await message.answer_document(
+        BufferedInputFile(data, filename=pdf.filename_of(title)),
+        caption=texts.PDF_READY,
+    )
+    await _safe_edit(note, texts.PDF_SENT)
 
 
 @router.message(Command("model"))
@@ -304,6 +338,7 @@ async def _set_commands(bot: Bot) -> None:
     await bot.set_my_commands([
         BotCommand(command="start", description="Boshlash"),
         BotCommand(command="new", description="Suhbatni tozalash"),
+        BotCommand(command="pdf", description="Oxirgi javobni PDF qilish"),
         BotCommand(command="model", description="Qaysi model ishlayapti"),
         BotCommand(command="id", description="Telegram ID ni ko'rsatish"),
         BotCommand(command="help", description="Yordam"),
