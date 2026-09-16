@@ -446,6 +446,18 @@ def _strip_tags(html: str) -> str:
 
 
 async def _set_commands(bot: Bot) -> None:
+    """Telegram menyusidagi buyruqlar ro'yxati.
+
+    Fon rejimida chaqiriladi, shuning uchun xatolikni shu yerda yutamiz:
+    menyu yozilmagani bot ishlamasligi degani emas.
+    """
+    try:
+        await _send_commands(bot)
+    except Exception:
+        log.warning("Buyruqlar ro'yxatini yozib bo'lmadi", exc_info=True)
+
+
+async def _send_commands(bot: Bot) -> None:
     await bot.set_my_commands([
         BotCommand(command="start", description="Boshlash"),
         BotCommand(command="new", description="Suhbatni tozalash"),
@@ -489,9 +501,15 @@ async def main() -> None:
         ),
     )
 
-    schedule = tasks.TaskStore(config.TASKS_DB) if config.SCHEDULE_ENABLED else None
-    if schedule:
-        log.info("Jadval yoqilgan: %s ta vazifa", len(schedule.all()))
+    schedule = None
+    if config.SCHEDULE_ENABLED:
+        try:
+            schedule = tasks.TaskStore(config.TASKS_DB)
+            log.info("Jadval yoqilgan: %s ta vazifa", len(schedule.all()))
+        except Exception:
+            # Disk yozishga ruxsat bermasligi mumkin. Bu jadvalni o'chiradi,
+            # lekin botning o'zini yiqitmasligi kerak — savol-javob muhimroq.
+            log.exception("Jadval bazasi ochilmadi — jadvalsiz davom etamiz")
 
     bot = Bot(token)
     dp = Dispatcher(
@@ -511,7 +529,10 @@ async def main() -> None:
         ))
 
     try:
-        await _set_commands(bot)
+        # Buyruqlar ro'yxati — Telegram'ga qilinadigan tarmoq chaqiruvi. U
+        # sekinlashsa, port ochilishini kutdirib qo'ymasligi kerak: hosting
+        # portni ko'rmasa, deploy «timed out» bo'lib yiqiladi.
+        asyncio.create_task(_set_commands(bot))
         log.info(
             "Bot ishga tushdi — model %s, effort %s, qurollar %s",
             config.MODEL, config.EFFORT, config.TOOLS,
