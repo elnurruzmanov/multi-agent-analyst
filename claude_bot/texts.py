@@ -57,7 +57,7 @@ ERR_AUTH = (
 )
 ERR_CREDIT = (
     "❌ Anthropic hisobida mablag' yoki ruxsat yetmayapti. "
-    "console.anthropic.com dagi balansni tekshiring."
+    "platform.claude.com dagi balansni tekshiring."
 )
 ERR_RATE = "⏳ Claude hozir band (rate limit). Bir necha soniyadan so'ng qayta yuboring."
 ERR_BAD_REQUEST = (

@@ -102,7 +102,7 @@ def require_api_key() -> str:
     if not ANTHROPIC_API_KEY:
         raise SystemExit(
             "ANTHROPIC_API_KEY berilmagan.\n"
-            "Kalitni https://console.anthropic.com/settings/keys dan oling, so'ng\n"
+            "Kalitni https://platform.claude.com/settings/keys dan oling, so'ng\n"
             "  .env fayliga ANTHROPIC_API_KEY=sk-ant-... deb qo'shing."
         )
     return ANTHROPIC_API_KEY
