@@ -15,7 +15,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, Message
 
-from claude_bot import config, formatting, texts, webhook
+from claude_bot import config, formatting, texts, tools, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter
 
@@ -50,7 +50,12 @@ async def cmd_id(message: Message) -> None:
 @router.message(Command("model"))
 async def cmd_model(message: Message, history: ChatHistory) -> None:
     await message.answer(
-        texts.model_info(config.MODEL, config.EFFORT, len(history.get(message.chat.id))),
+        texts.model_info(
+            config.MODEL,
+            config.EFFORT,
+            len(history.get(message.chat.id)),
+            tools.describe(config.TOOLS),
+        ),
         parse_mode=ParseMode.HTML,
     )
 
@@ -84,8 +89,10 @@ async def on_question(
 
     conversation = history.get(chat_id) + [{"role": "user", "content": question}]
 
+    progress, status = _progress(placeholder)
+
     try:
-        reply = await claude.ask(conversation, _progress(placeholder))
+        reply = await claude.ask(conversation, progress, status)
     except Exception as exc:  # bitta savol butun botni to'xtatmasligi kerak
         log.exception("Claude so'rovi muvaffaqiyatsiz")
         await _safe_edit(placeholder, friendly_error(exc))
@@ -119,7 +126,11 @@ async def on_other(message: Message) -> None:
 
 
 def _progress(placeholder: Message):
-    """Oqim davomida xabarni vaqti-vaqti bilan yangilab turadigan callback."""
+    """Oqim davomida xabarni yangilab turadigan ikkita callback.
+
+    Birinchisi yozilayotgan matnni ko'rsatadi, ikkinchisi qurol ishga
+    tushganini aytadi — qidiruv paytida matn oqmaydi, ekran esa jim turmasin.
+    """
     state = {"at": 0.0, "text": ""}
 
     async def update(partial: str) -> None:
@@ -134,7 +145,14 @@ def _progress(placeholder: Message):
         # HTML bo'lib qolsa, Telegram xabarni rad etadi.
         await _safe_edit(placeholder, preview)
 
-    return update
+    async def status(tool_name: str) -> None:
+        note = texts.tool_status(tool_name)
+        if note == state["text"]:
+            return
+        state["at"], state["text"] = time.monotonic(), note
+        await _safe_edit(placeholder, note)
+
+    return update, status
 
 
 def _preview(partial: str) -> str:
@@ -210,6 +228,8 @@ async def main() -> None:
         effort=config.EFFORT,
         use_fallbacks=config.USE_FALLBACKS,
         use_thinking=config.USE_THINKING,
+        tool_mode=config.TOOLS,
+        max_tool_uses=config.MAX_TOOL_USES,
     )
 
     bot = Bot(token)
@@ -222,7 +242,10 @@ async def main() -> None:
 
     try:
         await _set_commands(bot)
-        log.info("Bot ishga tushdi — model %s, effort %s", config.MODEL, config.EFFORT)
+        log.info(
+            "Bot ishga tushdi — model %s, effort %s, qurollar %s",
+            config.MODEL, config.EFFORT, config.TOOLS,
+        )
 
         if config.WEBHOOK_URL:
             await webhook.run(

@@ -74,6 +74,8 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
 | `CLAUDE_FALLBACKS` | `1` | Claude javobdan bosh tortsa, zaxira modelga o'tish |
 | `CLAUDE_THINKING` | `1` | Adaptive thinking; eski modellarda `0` qiling |
+| `CLAUDE_TOOLS` | `web` | Qurollar: `web`, `code` yoki `off` — pastda |
+| `CLAUDE_MAX_TOOL_USES` | `5` | Bitta javobda qurol nechta marta ishlatilsin |
 | `CLAUDE_WEBHOOK_URL` | bo'sh | Berilsa webhook rejimi; bo'sh bo'lsa polling |
 | `PORT` | `10000` | Webhook rejimida tinglanadigan port (hosting o'zi beradi) |
 
@@ -84,6 +86,32 @@ Tezroq va arzonroq javob kerak bo'lsa: `CLAUDE_EFFORT=low`, yoki
 tekshiring (`claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8` — qo'llaydi).
 Eskiroq `claude-haiku-4-5` uni qabul qilmaydi, u bilan `CLAUDE_THINKING=0`
 qo'shing.
+
+## Qurollar
+
+Claude javob berishdan oldin qurol ishlatishi mumkin — qidiradi, sahifani
+o'qiydi, hisoblaydi. Qurollar Anthropic serverida ishlaydi: bizning kodimiz
+ularni bajarmaydi, faqat ruxsat beradi.
+
+| `CLAUDE_TOOLS` | Nima beriladi | Qachon |
+| --- | --- | --- |
+| `web` (default) | qidirish + sahifani o'qish | bugungi ma'lumot kerak bo'lganda |
+| `code` | kod bajarish + oddiy qidiruv | hisob, jadval, grafik kerak bo'lganda |
+| `off` | hech narsa | eng arzon va eng tez |
+
+`web` va `code` birga berilmaydi: yangi qidiruv quroli natijalarni saralash
+uchun ichida kod bajarish muhitini ishlatadi, yoniga ikkinchisini qo'ysak
+model qaysi birini tanlashni chalkashtiradi.
+
+Qurol ishlatilgan javob qimmatroq turadi — model bir necha marta chaqiriladi
+va qidiruvning o'z narxi bor. `CLAUDE_MAX_TOOL_USES` bitta javobdagi
+chaqiruvlar sonini cheklaydi; butunlay kerak bo'lmasa `CLAUDE_TOOLS=off`.
+
+Qurol ishga tushganda bot xabarni «🔎 Internetdan qidiryapman…» ga
+o'zgartiradi — qidiruv paytida matn oqmaydi, ekran jim qolmasin uchun.
+
+Qurollar Opus 5, Opus 4.6+ va Sonnet 5 / 4.6 da ishlaydi. Eskiroq modelga
+o'tsangiz `CLAUDE_TOOLS=off` qo'ying.
 
 ## Hostingga qo'yish
 
@@ -131,6 +159,7 @@ tozalanadi.
 | --- | --- |
 | `main.py` | aiogram handler'lari: buyruqlar, savol → javob oqimi |
 | `webhook.py` | Webhook rejimi: maxfiy manzil, health sahifa, aiohttp servisi |
+| `tools.py` | Qaysi server qurollari berilishi va nega birga emasligi |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

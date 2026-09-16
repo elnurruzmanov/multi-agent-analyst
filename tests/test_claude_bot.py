@@ -118,11 +118,38 @@ def test_rate_limiter_can_be_disabled():
 
 # --- Claude qatlami ---------------------------------------------------------
 
+class _Delta:
+    def __init__(self, text):
+        self.type = "text_delta"
+        self.text = text
+
+
+class _Event:
+    """Stream hodisasi: matn bo'lagi yoki qurol ishga tushishi."""
+
+    def __init__(self, type_, delta=None, content_block=None):
+        self.type = type_
+        self.delta = delta
+        self.content_block = content_block
+
+    @staticmethod
+    def text(piece):
+        return _Event("content_block_delta", delta=_Delta(piece))
+
+    @staticmethod
+    def tool(name):
+        block = type("Block", (), {"type": "server_tool_use", "name": name})()
+        return _Event("content_block_start", content_block=block)
+
+
 class _FakeStream:
     """anthropic'ning stream helper'iga o'xshab qiladigan soxta obyekt."""
 
-    def __init__(self, pieces, final):
-        self._pieces = pieces
+    def __init__(self, pieces, final, events=None):
+        # `pieces` — qulaylik uchun: matn bo'laklari hodisaga aylantiriladi.
+        self._events = events if events is not None else [
+            _Event.text(piece) for piece in pieces
+        ]
         self._final = final
 
     async def __aenter__(self):
@@ -131,11 +158,10 @@ class _FakeStream:
     async def __aexit__(self, *exc_info):
         return False
 
-    @property
-    def text_stream(self):
+    def __aiter__(self):
         async def generator():
-            for piece in self._pieces:
-                yield piece
+            for event in self._events:
+                yield event
         return generator()
 
     async def get_final_message(self):
@@ -279,8 +305,10 @@ class _StubClaude:
         self.reply = reply
         self.seen = None
 
-    async def ask(self, messages, on_progress=None):
+    async def ask(self, messages, on_progress=None, on_status=None):
         self.seen = list(messages)
+        if on_status is not None:
+            await on_status("web_search")
         if on_progress is not None:
             await on_progress(self.reply.text)
         return self.reply
@@ -389,6 +417,115 @@ def test_thinking_can_be_turned_off_for_older_models(monkeypatch):
     asyncio.run(client.ask([{"role": "user", "content": "hi"}]))
 
     assert "thinking" not in captured
+
+
+# --- qurollar ---------------------------------------------------------------
+
+def test_web_mode_offers_search_and_fetch():
+    from claude_bot import tools
+
+    kinds = {tool["type"] for tool in tools.build("web", max_uses=3)}
+    assert kinds == {tools.WEB_SEARCH, tools.WEB_FETCH}
+    assert all(tool["max_uses"] == 3 for tool in tools.build("web", max_uses=3))
+
+
+def test_code_mode_avoids_two_execution_environments():
+    from claude_bot import tools
+
+    kinds = {tool["type"] for tool in tools.build("code")}
+    # Yangi qidiruv quroli ichida kod bajarish muhiti bor — kod rejimida
+    # qidiruvning oddiy varianti olinadi, aks holda muhit ikkita bo'lib qoladi.
+    assert tools.CODE_EXECUTION in kinds
+    assert tools.WEB_SEARCH not in kinds
+    assert tools.BASIC_WEB_SEARCH in kinds
+
+
+def test_tools_can_be_turned_off():
+    from claude_bot import tools
+
+    assert tools.build("off") == []
+
+
+def test_request_carries_tools_when_enabled(monkeypatch):
+    import asyncio
+
+    captured = {}
+    client = _client(
+        monkeypatch,
+        _FakeStream(["ok"], _Message("ok")),
+        captured,
+        tool_mode="web",
+    )
+    asyncio.run(client.ask([{"role": "user", "content": "hi"}]))
+
+    assert [tool["name"] for tool in captured["tools"]] == ["web_search", "web_fetch"]
+
+
+def test_no_tools_key_when_mode_is_off(monkeypatch):
+    import asyncio
+
+    captured = {}
+    client = _client(monkeypatch, _FakeStream(["ok"], _Message("ok")), captured)
+    asyncio.run(client.ask([{"role": "user", "content": "hi"}]))
+
+    assert "tools" not in captured
+
+
+def test_status_callback_fires_when_a_tool_starts(monkeypatch):
+    import asyncio
+
+    stream = _FakeStream(
+        None,
+        _Message("javob"),
+        events=[_Event.tool("web_search"), _Event.text("javob")],
+    )
+    client = _client(monkeypatch, stream, tool_mode="web")
+
+    seen = []
+
+    async def on_status(name):
+        seen.append(name)
+
+    asyncio.run(
+        client.ask([{"role": "user", "content": "hi"}], None, on_status)
+    )
+    assert seen == ["web_search"]
+
+
+def test_paused_turn_is_resumed(monkeypatch):
+    import asyncio
+
+    pytest.importorskip("anthropic")
+    from claude_bot.claude import ClaudeClient
+
+    client = ClaudeClient(
+        "sk-test",
+        model="claude-opus-5",
+        system="test",
+        max_tokens=100,
+        effort="low",
+        use_fallbacks=False,
+        tool_mode="web",
+    )
+
+    sent = []
+    replies = [
+        _FakeStream(["qidiryapman"], _Message("qism", stop_reason="pause_turn")),
+        _FakeStream([" va javob"], _Message("to'liq javob")),
+    ]
+
+    def fake_stream(**kwargs):
+        sent.append(kwargs["messages"])
+        return replies[len(sent) - 1]
+
+    monkeypatch.setattr(client._client.messages, "stream", fake_stream, raising=False)
+
+    reply = asyncio.run(client.ask([{"role": "user", "content": "hi"}]))
+
+    assert reply.text == "to'liq javob"
+    assert len(sent) == 2
+    # Ikkinchi so'rovda birinchi javob assistant xabari sifatida qaytadi.
+    assert sent[1][-1]["role"] == "assistant"
 
 
 # --- webhook rejimi ---------------------------------------------------------
