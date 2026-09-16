@@ -20,13 +20,27 @@ class ChatHistory:
         self.limit = max(2, limit)
         self._chats: dict[int, list[dict[str, str]]] = {}
 
-    def get(self, chat_id: int) -> list[dict[str, str]]:
-        """Claude'ga yuboriladigan `messages` ro'yxatining nusxasi."""
-        return list(self._chats.get(chat_id, []))
+    def get(self, chat_id: int) -> list[dict]:
+        """Claude'ga yuboriladigan `messages` ro'yxati."""
+        return [
+            {"role": item["role"], "content": item["content"]}
+            for item in self._chats.get(chat_id, [])
+        ]
 
-    def add(self, chat_id: int, role: str, content: str) -> None:
+    def add(self, chat_id: int, role: str, content, marker: str | None = None) -> None:
+        """Xabarni tarixga qo'shadi.
+
+        `marker` — rasm yoki fayl yuborilganda beriladigan qisqa matn. Yangi
+        xabar kelishi bilan eski media xabarlar o'sha matnga almashtiriladi:
+        aks holda har bir savolda fayl qaytadan yuborilib, kontekst ham,
+        hisob ham bo'shab qoladi. Ya'ni kontekstda faqat oxirgi fayl turadi.
+        """
         messages = self._chats.setdefault(chat_id, [])
-        messages.append({"role": role, "content": content})
+        for item in messages:
+            if item.get("marker"):
+                item["content"] = item["marker"]
+                item["marker"] = None
+        messages.append({"role": role, "content": content, "marker": marker})
         self._trim(messages)
 
     def clear(self, chat_id: int) -> None:

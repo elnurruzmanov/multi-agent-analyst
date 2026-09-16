@@ -69,6 +69,7 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_MAX_TOKENS` | `16000` | Bitta javobning eng katta uzunligi |
 | `CLAUDE_HISTORY_LIMIT` | `20` | Nechta xabar esda qolsin |
 | `CLAUDE_MAX_QUESTION_CHARS` | `4000` | Savol uzunligi chegarasi |
+| `CLAUDE_MAX_FILE_MB` | `10` | Yuborilgan fayl hajmi chegarasi |
 | `CLAUDE_RATE_LIMIT` | `10` | Bir foydalanuvchi uchun daqiqasiga savol; `0` — cheklovsiz |
 | `CLAUDE_ALLOWED_USER_IDS` | bo'sh | Ruxsat etilganlar; bo'sh — hammaga ochiq |
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
@@ -86,6 +87,33 @@ Tezroq va arzonroq javob kerak bo'lsa: `CLAUDE_EFFORT=low`, yoki
 tekshiring (`claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8` — qo'llaydi).
 Eskiroq `claude-haiku-4-5` uni qabul qilmaydi, u bilan `CLAUDE_THINKING=0`
 qo'shing.
+
+## Rasm va fayl
+
+Botga rasm yoki fayl yuborsangiz, izohiga yozgan savolingiz bilan birga
+Claude'ga boradi. Izoh bo'lmasa bot o'zi «bu nima?» deb so'raydi.
+
+| Nima yuborilsa | Qanday o'qiladi |
+| --- | --- |
+| Rasm (JPG, PNG, GIF, WebP) | Claude to'g'ridan-to'g'ri ko'radi |
+| PDF | Claude to'g'ridan-to'g'ri o'qiydi |
+| Word (`.docx`) | matni ajratib olinadi (`python-docx`) |
+| Excel (`.xlsx`) | varaqlar matnga aylantiriladi (`openpyxl`) |
+| Matnli fayl (`.txt`, `.csv`, `.json`, `.md`) | o'zi matn |
+| Qolgani (video, ovoz, arxiv) | o'qilmaydi, bot buni aytadi |
+
+Ikkita chegara bor va ikkalasi ham hisobni himoya qiladi:
+
+- **Fayl hajmi** — `CLAUDE_MAX_FILE_MB` (default 10 MB). Telegram baribir
+  botlarga 20 MB dan kattasini bermaydi.
+- **Kontekstda faqat oxirgi fayl turadi.** Yangi xabar kelishi bilan eski
+  rasm/fayl tarixda `[«nom» yuborildi]` yozuviga almashadi. Aks holda har bir
+  savolda o'sha fayl qaytadan yuborilib, pul behuda ketardi. Ya'ni yuborilgan
+  fayl haqida savollarni ketma-ket bering; orada boshqa fayl yuborsangiz,
+  avvalgisi kontekstdan chiqadi.
+
+Skanerdan o'tgan (rasmga aylangan) PDF ichida matn bo'lmaydi — bunday hujjatni
+rasm sifatida yuborgan ma'qul, o'shanda Claude uni ko'rib o'qiydi.
 
 ## Qurollar
 
@@ -160,6 +188,7 @@ tozalanadi.
 | `main.py` | aiogram handler'lari: buyruqlar, savol → javob oqimi |
 | `webhook.py` | Webhook rejimi: maxfiy manzil, health sahifa, aiohttp servisi |
 | `tools.py` | Qaysi server qurollari berilishi va nega birga emasligi |
+| `media.py` | Rasm va fayllarni Claude bloklariga aylantirish |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

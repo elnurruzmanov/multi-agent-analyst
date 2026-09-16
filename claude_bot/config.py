@@ -64,6 +64,10 @@ HISTORY_LIMIT = int(os.getenv("CLAUDE_HISTORY_LIMIT", "20"))
 # Bitta savol uchun belgilar chegarasi — hisobni himoya qiladi.
 MAX_QUESTION_CHARS = int(os.getenv("CLAUDE_MAX_QUESTION_CHARS", "4000"))
 
+# Yuborilgan fayl uchun chegara. Telegram botlarga baribir 20 MB dan
+# kattasini bermaydi, katta fayl esa qimmatga tushadi.
+MAX_FILE_MB = int(os.getenv("CLAUDE_MAX_FILE_MB", "10"))
+
 # Bir foydalanuvchi bir daqiqada nechta savol bera oladi. 0 — cheklovsiz.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("CLAUDE_RATE_LIMIT", "10"))
 
