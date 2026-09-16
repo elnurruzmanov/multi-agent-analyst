@@ -335,6 +335,7 @@ def _run_question(monkeypatch, reply, *, text="Salom", history=None, limiter=Non
 
     pytest.importorskip("aiogram")
     from claude_bot import main
+    from claude_bot.session import UsageTracker
 
     message = _StubMessage(text)
     claude = _StubClaude(reply)
@@ -346,6 +347,7 @@ def _run_question(monkeypatch, reply, *, text="Salom", history=None, limiter=Non
             claude=claude,
             history=history,
             limiter=limiter or RateLimiter(per_minute=0),
+            usage=UsageTracker(),
         )
     )
     return message, claude, history
@@ -554,6 +556,101 @@ def test_plain_text_history_is_untouched_by_markers():
     assert [item["content"] for item in history.get(1)] == [
         "oddiy savol", "javob", "yana savol",
     ]
+
+
+# --- xarajat ----------------------------------------------------------------
+
+def test_cost_follows_the_price_list():
+    from claude_bot import pricing
+
+    # 1M kirish + 1M chiqish = $5 + $25 Opus uchun.
+    assert pricing.cost("claude-opus-5", 1_000_000, 1_000_000) == pytest.approx(30.0)
+    assert pricing.cost("claude-sonnet-5", 1_000_000, 0) == pytest.approx(2.0)
+    assert pricing.cost("claude-haiku-4-5", 0, 1_000_000) == pytest.approx(5.0)
+
+
+def test_unknown_model_is_priced_high_rather_than_low():
+    from claude_bot import pricing
+
+    # Taxmin kam chiqqandan ko'ra ko'p chiqqani xavfsiz.
+    assert pricing.rates("qandaydir-yangi-model") == pricing.FALLBACK
+
+
+def test_money_reads_naturally():
+    from claude_bot import pricing
+
+    assert pricing.money(0) == "0"
+    assert pricing.money(0.004) == "1 sentdan kam"
+    assert pricing.money(0.03) == "~3 sent"
+    assert pricing.money(1.5) == "~$1.50"
+
+
+def test_usage_separates_the_last_day_from_the_total():
+    from claude_bot.session import UsageTracker
+
+    usage = UsageTracker()
+    now = 1_000_000.0
+    usage.record(1, 0.05, 1000, 500, now=now - 48 * 3600)  # ikki kun oldin
+    usage.record(1, 0.02, 400, 200, now=now - 3600)        # bir soat oldin
+
+    summary = usage.summary(1, now=now)
+    assert summary["calls"] == 2
+    assert summary["usd"] == pytest.approx(0.07)
+    assert summary["recent_calls"] == 1
+    assert summary["recent_usd"] == pytest.approx(0.02)
+
+
+def test_usage_is_per_chat():
+    from claude_bot.session import UsageTracker
+
+    usage = UsageTracker()
+    usage.record(1, 0.10, 100, 100)
+    usage.record(2, 0.01, 10, 10)
+
+    assert usage.summary(1)["usd"] == pytest.approx(0.10)
+    assert usage.summary(2)["usd"] == pytest.approx(0.01)
+    assert usage.summary(3)["calls"] == 0
+
+
+def test_answer_carries_the_price_note(monkeypatch):
+    from claude_bot import config
+
+    monkeypatch.setattr(config, "SHOW_COST", True)
+    reply = _reply("Javob", input_tokens=5000, output_tokens=2000)
+    message, _, _ = _run_question(monkeypatch, reply)
+
+    # Narx oxirgi bo'lakka qo'shiladi, javobning o'ziga tegmaydi.
+    assert "Javob" in message.edits[-1]
+    assert "sent" in message.edits[-1]
+
+
+def test_price_note_can_be_turned_off(monkeypatch):
+    from claude_bot import config
+
+    monkeypatch.setattr(config, "SHOW_COST", False)
+    reply = _reply("Javob", input_tokens=5000, output_tokens=2000)
+    message, _, _ = _run_question(monkeypatch, reply)
+
+    assert "sent" not in message.edits[-1]
+
+
+def test_cost_command_reports_both_windows():
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import main
+    from claude_bot.session import UsageTracker
+
+    usage = UsageTracker()
+    usage.record(1, 0.12, 5000, 2000)
+
+    message = _StubMessage()
+    asyncio.run(main.cmd_cost(message, usage=usage))
+
+    report = message.outbox[-1]
+    assert "Sarf hisobi" in report
+    assert "12 sent" in report
+    assert "/new" in report  # tejash maslahati ham bo'lsin
 
 
 # --- PDF --------------------------------------------------------------------
@@ -767,6 +864,8 @@ def _run_media(reply, message, payload=b"", history=None):
     pytest.importorskip("aiogram")
     from claude_bot import main
 
+    from claude_bot.session import UsageTracker
+
     claude = _StubClaude(reply)
     history = history or ChatHistory()
     asyncio.run(
@@ -776,6 +875,7 @@ def _run_media(reply, message, payload=b"", history=None):
             claude=claude,
             history=history,
             limiter=RateLimiter(per_minute=0),
+            usage=UsageTracker(),
         )
     )
     return claude, history

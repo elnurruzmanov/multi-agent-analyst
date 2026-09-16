@@ -14,6 +14,7 @@ WELCOME = (
     "<b>Buyruqlar</b>\n"
     "/new — suhbatni noldan boshlash\n"
     "/pdf — oxirgi javobni PDF fayl qilish\n"
+    "/cost — qancha pul sarflandi\n"
     "/model — qaysi model ishlayotgani\n"
     "/id — Telegram ID ingiz\n"
     "/help — shu yordam"
@@ -107,6 +108,27 @@ def rate_limited(per_minute: int) -> str:
     return (
         f"Biroz sekinroq 🙂 Daqiqasiga {per_minute} tagacha savol bera olasiz. "
         "Bir daqiqadan keyin urinib ko'ring."
+    )
+
+
+def cost_line(usd: str) -> str:
+    """Javob oxiriga qo'shiladigan kichkina eslatma."""
+    return f"\n\n<i>· {usd}</i>"
+
+
+def cost_report(summary: dict, model: str, money) -> str:
+    return (
+        "💰 <b>Sarf hisobi</b>\n\n"
+        f"<b>So'nggi 24 soat:</b> {money(summary['recent_usd'])}"
+        f" ({summary['recent_calls']} ta savol)\n"
+        f"<b>Bot yoqilgandan beri:</b> {money(summary['usd'])}"
+        f" ({summary['calls']} ta savol)\n"
+        f"<b>Model:</b> <code>{model}</code>\n\n"
+        "Bu <b>taxminiy</b> hisob — faqat matn tokenlari. Internet "
+        "qidiruvining o'z narxi bunga kirmaydi.\n\n"
+        "Aniq raqam: platform.claude.com → Usage\n\n"
+        "Tejash uchun eng oson yo'l — mavzu tugagach /new yozish: uzun suhbat "
+        "har savolda boshidan qayta yuboriladi."
     )
 
 
