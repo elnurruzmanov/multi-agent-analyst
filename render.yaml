@@ -55,6 +55,11 @@ services:
         sync: false
 
   # Claude'ga ulangan Telegram bot. Long polling — shuning uchun worker.
+  # Render worker uchun `free` ni qabul qilmasa, ikki yo'l bor:
+  #   1) plan: starter ga o'tkazing (pullik, eng ishonchli);
+  #   2) yoki bu servisni o'chirib, qo'lda «Web Service» yarating va
+  #      CLAUDE_WEBHOOK_URL ni bering — bot webhook rejimida ishlaydi
+  #      (claude_bot/README.md dagi «Hostingga qo'yish» bo'limi).
   # Suhbat tarixi xotirada turadi: qayta deploy qilinganda u tozalanadi, bu
   # ataylab shunday (yozishmalar diskda qolmaydi).
   - type: worker

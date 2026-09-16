@@ -391,6 +391,50 @@ def test_thinking_can_be_turned_off_for_older_models(monkeypatch):
     assert "thinking" not in captured
 
 
+# --- webhook rejimi ---------------------------------------------------------
+
+def test_webhook_path_hides_the_token():
+    pytest.importorskip("aiogram")
+    from claude_bot import webhook
+
+    token = "123456:AAHsupersecret"
+    path = webhook.secret_path(token)
+
+    assert path.startswith("/telegram/")
+    assert token not in path
+    assert "AAHsupersecret" not in path
+    # Bir xil token — bir xil manzil (qayta deploy'da o'zgarib ketmasin).
+    assert webhook.secret_path(token) == path
+    assert webhook.secret_path("boshqa:token") != path
+
+
+def test_webhook_secret_differs_from_the_path():
+    pytest.importorskip("aiogram")
+    from claude_bot import webhook
+
+    token = "123456:AAHsupersecret"
+    assert token not in webhook.secret_token(token)
+    assert webhook.secret_token(token) not in webhook.secret_path(token)
+
+
+def test_webhook_app_serves_health_and_telegram_routes():
+    pytest.importorskip("aiogram")
+    from aiogram import Bot, Dispatcher
+
+    from claude_bot import webhook
+
+    bot = Bot("123456:AAHfake-token-for-tests")
+    app = webhook.build_app(
+        bot, Dispatcher(), path="/telegram/abc", secret="s3cret"
+    )
+    routes = {
+        (route.method, route.resource.canonical) for route in app.router.routes()
+    }
+
+    assert ("GET", "/") in routes
+    assert ("POST", "/telegram/abc") in routes
+
+
 def test_friendly_error_maps_known_failures():
     anthropic = pytest.importorskip("anthropic")
     from claude_bot import texts

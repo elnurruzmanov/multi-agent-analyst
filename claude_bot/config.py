@@ -66,6 +66,22 @@ ALLOWED_USER_IDS: set[int] = {
 }
 
 
+# --- Webhook rejimi (ixtiyoriy) -------------------------------------------
+# Berilsa — bot doim ishlaydigan «worker» emas, oddiy web servis sifatida
+# yashaydi: Telegram xabar kelganda shu manzilga o'zi murojaat qiladi.
+# Manzil to'liq bo'lsin: https://mening-botim.onrender.com
+WEBHOOK_URL = (
+    os.getenv("CLAUDE_WEBHOOK_URL")
+    # Render web servisga o'z manzilini shu nom bilan beradi — qo'lda yozish
+    # shart bo'lmasligi uchun uni ham qaraymiz.
+    or os.getenv("RENDER_EXTERNAL_URL")
+    or ""
+).strip().rstrip("/")
+
+# Hosting qaysi portni bersa — o'shani tinglaymiz.
+PORT = int(os.getenv("PORT", "10000"))
+
+
 def is_allowed(user_id: int) -> bool:
     """Ro'yxat bo'sh bo'lsa bot ochiq, aks holda faqat ro'yxatdagilar."""
     return not ALLOWED_USER_IDS or user_id in ALLOWED_USER_IDS

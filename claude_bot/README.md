@@ -74,6 +74,8 @@ Hammasi environment orqali; ko'rsatilganlari default qiymatlar.
 | `CLAUDE_SYSTEM_PROMPT` | o'zbekcha ko'rsatma | Botning xarakteri |
 | `CLAUDE_FALLBACKS` | `1` | Claude javobdan bosh tortsa, zaxira modelga o'tish |
 | `CLAUDE_THINKING` | `1` | Adaptive thinking; eski modellarda `0` qiling |
+| `CLAUDE_WEBHOOK_URL` | bo'sh | Berilsa webhook rejimi; bo'sh bo'lsa polling |
+| `PORT` | `10000` | Webhook rejimida tinglanadigan port (hosting o'zi beradi) |
 
 Tezroq va arzonroq javob kerak bo'lsa: `CLAUDE_EFFORT=low`, yoki
 `CLAUDE_MODEL=claude-sonnet-5`. Murakkab masalalar uchun `CLAUDE_EFFORT=xhigh`.
@@ -83,14 +85,44 @@ tekshiring (`claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8` — qo'llaydi)
 Eskiroq `claude-haiku-4-5` uni qabul qilmaydi, u bilan `CLAUDE_THINKING=0`
 qo'shing.
 
-## Render'ga deploy
+## Hostingga qo'yish
 
-`render.yaml` da `claude-telegram-bot` nomli worker servisi tayyor. Render
-dashboard'ida `CLAUDE_BOT_TOKEN`, `ANTHROPIC_API_KEY` va
-`CLAUDE_ALLOWED_USER_IDS` ni kiriting — qolgani blueprint'dan keladi.
+Botni ikki xil ishlatish mumkin — kodning o'zi bir xil, farqi
+`CLAUDE_WEBHOOK_URL` berilgan-berilmaganida.
 
-Bepul tarifda servis uxlab qolishi mumkin; bot long polling ishlatgani uchun
-uyg'onganda o'zi qayta ulanadi, lekin suhbat tarixi xotirada bo'lgani sababli
+| Rejim | Qachon | Sozlash |
+| --- | --- | --- |
+| **Polling** (default) | lokalda va doim ishlab turadigan worker'da | hech narsa — shunchaki ishga tushiring |
+| **Webhook** | web servisda, ayniqsa uxlab qoladigan bepul tarifda | `CLAUDE_WEBHOOK_URL=https://<servis>.onrender.com` |
+
+**Worker (polling).** `render.yaml` da `claude-telegram-bot` nomli worker
+tayyor: `CLAUDE_BOT_TOKEN`, `ANTHROPIC_API_KEY`, `CLAUDE_ALLOWED_USER_IDS` ni
+Render panelida kiritasiz. Eng sodda yo'l, lekin servis to'xtovsiz ishlab
+turishi kerak.
+
+**Web servis (webhook).** Render'da *Web Service* yaratasiz:
+
+| Maydon | Qiymat |
+| --- | --- |
+| Build command | `pip install -r requirements-claude-bot.txt` |
+| Start command | `python -m claude_bot.main` |
+| Health check path | `/` |
+
+Env var'larga yuqoridagi uchtasi ustiga `CLAUDE_WEBHOOK_URL` ni qo'shasiz —
+servisning to'liq manzili (`https://...onrender.com`). Bot o'zi Telegram'ga
+webhook o'rnatadi, `/` manzilida esa «ok» qaytaradigan tekshiruv sahifasi
+turadi.
+
+Webhook manzilining maxfiy qismi tokenning sha256 yig'indisidan olinadi va
+Telegram har bir so'rovda maxfiy sarlavha yuboradi — begona POST so'rov 401
+bilan qaytariladi. Token na manzilda, na logda ko'rinmaydi.
+
+Servis harakatsizlikdan uxlab qoladigan tarifda bo'lsa, birinchi xabardan
+keyin uyg'onish bir daqiqagacha cho'zilishi mumkin. Buni yo'qotish uchun
+tashqi ping xizmati (masalan cron-job.org) har 10 daqiqada `/` manzilini
+so'rab tursa, servis uyg'oq qoladi.
+
+Har ikki holatda ham suhbat tarixi xotirada: qayta deploy qilinganda u
 tozalanadi.
 
 ## Nima qayerda
@@ -98,6 +130,7 @@ tozalanadi.
 | Fayl | Roli |
 | --- | --- |
 | `main.py` | aiogram handler'lari: buyruqlar, savol → javob oqimi |
+| `webhook.py` | Webhook rejimi: maxfiy manzil, health sahifa, aiohttp servisi |
 | `claude.py` | Anthropic API bilan ishlash, xatoliklarni odam tiliga o'girish |
 | `formatting.py` | Markdown → Telegram HTML, uzun javobni bo'lish |
 | `session.py` | Suhbat tarixi va daqiqalik limit |

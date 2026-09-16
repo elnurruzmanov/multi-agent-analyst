@@ -15,7 +15,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, Message
 
-from claude_bot import config, formatting, texts
+from claude_bot import config, formatting, texts, webhook
 from claude_bot.claude import ClaudeClient, friendly_error
 from claude_bot.session import ChatHistory, RateLimiter
 
@@ -222,10 +222,18 @@ async def main() -> None:
 
     try:
         await _set_commands(bot)
-        # To'planib qolgan eski xabarlarga javob bermaymiz.
-        await bot.delete_webhook(drop_pending_updates=True)
         log.info("Bot ishga tushdi — model %s, effort %s", config.MODEL, config.EFFORT)
-        await dp.start_polling(bot)
+
+        if config.WEBHOOK_URL:
+            await webhook.run(
+                bot, dp, base_url=config.WEBHOOK_URL, port=config.PORT, token=token
+            )
+        else:
+            log.info("Polling rejimi (CLAUDE_WEBHOOK_URL berilmagan)")
+            # Eski webhook qolib ketgan bo'lsa olib tashlaymiz, to'planib qolgan
+            # xabarlarga esa javob bermaymiz.
+            await bot.delete_webhook(drop_pending_updates=True)
+            await dp.start_polling(bot)
     except TelegramUnauthorizedError:
         raise SystemExit(
             "Telegram tokenni qabul qilmadi. CLAUDE_BOT_TOKEN ni tekshiring — "
