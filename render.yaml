@@ -53,3 +53,30 @@ services:
         sync: false
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
+
+  # Claude'ga ulangan Telegram bot. Long polling — shuning uchun worker.
+  # Suhbat tarixi xotirada turadi: qayta deploy qilinganda u tozalanadi, bu
+  # ataylab shunday (yozishmalar diskda qolmaydi).
+  - type: worker
+    name: claude-telegram-bot
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: "pip install -r requirements-claude-bot.txt"
+    startCommand: "python -m claude_bot.main"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # @BotFather bergan token — Gladiator botinikidan boshqa.
+      - key: CLAUDE_BOT_TOKEN
+        sync: false
+      # console.anthropic.com dan olinadigan kalit.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Bo'sh qolsa bot hammaga ochiq va har bir savol pul yechadi.
+      - key: CLAUDE_ALLOWED_USER_IDS
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-opus-5
+      - key: CLAUDE_EFFORT
+        value: medium

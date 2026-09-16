@@ -1,0 +1,5 @@
+# Claude'ga ulangan Telegram bot (claude_bot/). Mustaqil servis, shuning uchun
+# asosiy backend'dan alohida ro'yxat.
+aiogram>=3.13,<4
+anthropic>=1.0,<2
+python-dotenv>=1.0

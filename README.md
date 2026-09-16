@@ -146,6 +146,21 @@ Run one uvicorn worker only: embedded Qdrant lets a single process hold
 Free-tier Render services sleep when idle, so the first request after a quiet
 period takes about 50 seconds — the UI says so while it waits.
 
+## Telegram bots
+
+Two independent bots live in this repo. Each is its own worker service in
+`render.yaml`, with its own BotFather token, and neither needs the backend:
+
+| Bot | Directory | What it does |
+|---|---|---|
+| Gladiator arena | `bot/` | Bookings, prices, loyalty card, admin panel — see [`bot/README.md`](bot/README.md) |
+| Claude chat | `claude_bot/` | Relays your Telegram messages to the Claude API and streams the answer back — see [`claude_bot/README.md`](claude_bot/README.md) |
+
+```bash
+pip install -r requirements-claude-bot.txt
+python -m claude_bot.main        # needs CLAUDE_BOT_TOKEN + ANTHROPIC_API_KEY
+```
+
 ## Evaluation snapshot (mock mode)
 
 | run | routing | judge avg |
