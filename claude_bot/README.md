@@ -22,7 +22,19 @@ ishga tushirish buyrug'i. Ikkalasi bir vaqtda ishlayverishi mumkin.
 | Formatlash | `**qalin**`, `` `kod` ``, ```` ``` ```` bloklari Telegram HTML'ga aylanadi |
 | Himoya | Foydalanuvchi ro'yxati, savol uzunligi va daqiqalik limit — hisob bo'shab qolmasin |
 
-Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/model`, `/id`, `/help`.
+Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/pdf`, `/model`, `/id`, `/help`.
+
+## PDF
+
+`/pdf` oxirgi javobni PDF fayl qilib yuboradi. Fayl shu yerda, bot ichida
+yig'iladi (`reportlab`) — **Claude fayl yarata olmaydi**, u faqat matn
+qaytaradi. Shu sababli tizim ko'rsatmasida unga «fayl tayyor» deb aytish
+taqiqlangan: modelning o'zi fayl yasay olmagani holda «mana fayl» deyishi
+foydalanuvchini aldash bo'lardi.
+
+Shrift: DejaVu topilsa o'sha ishlatiladi (`oʻ`, `gʻ` to'g'ri chiqadi), aks
+holda Helvetica'ga tushib, sig'maydigan belgilar yaqin ko'rinishiga
+almashtiriladi — PDF chiqmay qolgandan ko'ra shunisi yaxshi.
 
 ## Sozlash
 
@@ -106,11 +118,11 @@ Ikkita chegara bor va ikkalasi ham hisobni himoya qiladi:
 
 - **Fayl hajmi** — `CLAUDE_MAX_FILE_MB` (default 10 MB). Telegram baribir
   botlarga 20 MB dan kattasini bermaydi.
-- **Kontekstda faqat oxirgi fayl turadi.** Yangi xabar kelishi bilan eski
-  rasm/fayl tarixda `[«nom» yuborildi]` yozuviga almashadi. Aks holda har bir
-  savolda o'sha fayl qaytadan yuborilib, pul behuda ketardi. Ya'ni yuborilgan
-  fayl haqida savollarni ketma-ket bering; orada boshqa fayl yuborsangiz,
-  avvalgisi kontekstdan chiqadi.
+- **Fayl kontekstda abadiy qolmaydi.** Yuborilgan rasm/hujjat haqida bir necha
+  savol berish mumkin, lekin ikki holatda u tarixda `[«nom» yuborildi]`
+  yozuviga almashadi: yangi fayl yuborilganda, yoki suhbat undan
+  `MEDIA_KEEP` (6) ta xabar nariga o'tganda. Aks holda hujjat har bir savolda
+  qaytadan yuborilib, hisobni bo'shatib qo'yardi.
 
 Skanerdan o'tgan (rasmga aylangan) PDF ichida matn bo'lmaydi — bunday hujjatni
 rasm sifatida yuborgan ma'qul, o'shanda Claude uni ko'rib o'qiydi.

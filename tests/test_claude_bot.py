@@ -295,6 +295,10 @@ class _StubMessage:
         self.edits.append(text)
         self.text = text
 
+    async def answer_document(self, document, **kwargs):
+        self.outbox.append(document)
+        return self
+
 
 class _StubBot:
     def __init__(self, payload=b""):
@@ -552,6 +556,45 @@ def test_plain_text_history_is_untouched_by_markers():
     ]
 
 
+# --- PDF --------------------------------------------------------------------
+
+def test_pdf_is_a_real_pdf():
+    pytest.importorskip("reportlab")
+    from claude_bot import pdf
+
+    data = pdf.build("## Hisobot\n\n- Birinchi\n- Ikkinchi\n\n**Jami: 100**")
+    assert data.startswith(b"%PDF")
+    assert len(data) > 800
+
+
+def test_pdf_title_comes_from_the_first_heading():
+    pytest.importorskip("reportlab")
+    from claude_bot import pdf
+
+    assert pdf.title_of("## Qarindoshlar o'tirishi\n\nmatn") == "Qarindoshlar o'tirishi"
+    assert pdf.title_of("**Oylik hisobot**\nmatn") == "Oylik hisobot"
+    assert pdf.title_of("\n\n") == "Javob"
+
+
+def test_pdf_filename_is_safe():
+    pytest.importorskip("reportlab")
+    from claude_bot import pdf
+
+    assert pdf.filename_of("Qarindoshlar o'tirishi") == "qarindoshlar_o_tirishi.pdf"
+    assert pdf.filename_of("!!!").endswith(".pdf")
+    assert " " not in pdf.filename_of("uzun nom bilan fayl")
+
+
+def test_pdf_still_builds_without_a_unicode_font(monkeypatch):
+    pytest.importorskip("reportlab")
+    from claude_bot import pdf
+
+    # Hostingda DejaVu bo'lmasligi mumkin — o'shanda ham PDF chiqishi kerak.
+    monkeypatch.setattr(pdf, "FONT_PATHS", ())
+    data = pdf.build("Belgilar: oʻzbek — «qo'shtirnoq» va ustunlar")
+    assert data.startswith(b"%PDF")
+
+
 # --- qurollar ---------------------------------------------------------------
 
 def test_web_mode_offers_search_and_fetch():
@@ -747,8 +790,9 @@ def test_photo_reaches_claude_as_an_image_with_the_caption():
     content = claude.seen[-1]["content"]
     assert content[0]["type"] == "image"
     assert content[1]["text"] == "Bu jadvalda xato bormi?"
-    # Tarixda rasm emas, uning belgisi qoladi — keyingi savollar arzon bo'lsin.
-    assert "yuborildi" in history.get(1)[0]["content"]
+    # Rasm tarixda qoladi — «buni PDF qil» deb davom ettirish uchun kerak.
+    # Qachon chiqib ketishi alohida testlarda tekshiriladi.
+    assert history.get(1)[0]["content"] == content
 
 
 def test_photo_without_a_caption_gets_a_default_question():
@@ -817,6 +861,49 @@ def test_empty_text_file_is_explained():
 
     assert claude.seen is None
     assert message.edits[-1] == texts.EMPTY_FILE
+
+
+def test_pdf_command_sends_a_document_built_from_the_last_answer():
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    pytest.importorskip("reportlab")
+    from claude_bot import main
+
+    history = ChatHistory()
+    history.add(1, "user", "ro'yxatni yoz")
+    history.add(1, "assistant", "## Qarindoshlar\n\n- Akram — 300 000")
+
+    message = _StubMessage()
+    asyncio.run(main.cmd_pdf(message, history=history))
+
+    document = message.outbox[-1]
+    assert document.filename.endswith(".pdf")
+    assert document.data.startswith(b"%PDF")
+
+
+def test_pdf_command_without_an_answer_explains_itself():
+    import asyncio
+
+    pytest.importorskip("aiogram")
+    from claude_bot import main, texts
+
+    message = _StubMessage()
+    asyncio.run(main.cmd_pdf(message, history=ChatHistory()))
+
+    assert message.outbox == [texts.NOTHING_TO_EXPORT]
+
+
+def test_attachment_survives_the_answer_that_follows_it():
+    history = ChatHistory()
+    blocks = [{"type": "image", "source": {"data": "aaa"}}]
+
+    history.add(1, "user", blocks, marker="[rasm yuborildi]")
+    history.add(1, "assistant", "rasmda ro'yxat bor")
+
+    # Rasm haqida yana savol berish mumkin bo'lishi kerak — javob qo'shilgani
+    # uni kontekstdan chiqarib yubormasin.
+    assert history.get(1)[0]["content"] == blocks
 
 
 def test_friendly_error_maps_known_failures():

@@ -11,6 +11,16 @@ from __future__ import annotations
 
 import time
 
+# Yuborilgan rasm/fayl kontekstda nechta xabar davomida qolsin.
+MEDIA_KEEP = 6
+
+
+def _collapse(item: dict) -> None:
+    """Media xabarni o'z belgisiga (qisqa matnga) almashtiradi."""
+    if item.get("marker"):
+        item["content"] = item["marker"]
+        item["marker"] = None
+
 
 class ChatHistory:
     """Har bir chat uchun oxirgi N ta xabar."""
@@ -30,18 +40,24 @@ class ChatHistory:
     def add(self, chat_id: int, role: str, content, marker: str | None = None) -> None:
         """Xabarni tarixga qo'shadi.
 
-        `marker` — rasm yoki fayl yuborilganda beriladigan qisqa matn. Yangi
-        xabar kelishi bilan eski media xabarlar o'sha matnga almashtiriladi:
-        aks holda har bir savolda fayl qaytadan yuborilib, kontekst ham,
-        hisob ham bo'shab qoladi. Ya'ni kontekstda faqat oxirgi fayl turadi.
+        `marker` — rasm yoki fayl yuborilganda beriladigan qisqa matn. Fayl
+        kontekstda abadiy qololmaydi: har savolda u qaytadan yuborilsa, pul
+        behuda ketadi. Shuning uchun ikkita qoida bor:
+
+        * yangi fayl kelsa, avvalgisi darhol belgisiga almashadi;
+        * eski fayl `MEDIA_KEEP` ta xabardan nariga o'tsa ham almashadi.
+
+        Ya'ni yuborilgan rasm haqida bir necha savol berish mumkin, lekin u
+        suhbat oxirigacha ergashib yurmaydi.
         """
         messages = self._chats.setdefault(chat_id, [])
-        for item in messages:
-            if item.get("marker"):
-                item["content"] = item["marker"]
-                item["marker"] = None
+        if marker is not None:
+            for item in messages:
+                _collapse(item)
         messages.append({"role": role, "content": content, "marker": marker})
         self._trim(messages)
+        for item in messages[:-MEDIA_KEEP]:
+            _collapse(item)
 
     def clear(self, chat_id: int) -> None:
         self._chats.pop(chat_id, None)
