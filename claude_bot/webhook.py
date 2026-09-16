@@ -14,6 +14,7 @@ import hashlib
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramUnauthorizedError
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
@@ -93,11 +94,22 @@ async def run(
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-    await bot.set_webhook(
-        base_url + path,
-        secret_token=secret,
-        drop_pending_updates=True,
-    )
+    # Port allaqachon ochiq: endi Telegram bilan gaplashamiz. Bir martalik
+    # tarmoq uzilishi butun deploy'ni yiqitmasligi uchun bir necha marta
+    # urinamiz — servisning o'zi esa shu orada ishlab turaveradi.
+    for attempt in range(1, 4):
+        try:
+            await bot.set_webhook(
+                base_url + path, secret_token=secret, drop_pending_updates=True,
+            )
+            break
+        except TelegramUnauthorizedError:
+            raise
+        except Exception:
+            log.warning("Webhook o'rnatilmadi (%s-urinish)", attempt, exc_info=True)
+            await asyncio.sleep(2 * attempt)
+    else:
+        log.error("Webhook o'rnatilmadi — bot xabarlarni olmasligi mumkin")
     # Manzilning maxfiy qismini logga chiqarmaymiz.
     log.info("Webhook rejimi: %s/telegram/… , port %s", base_url, port)
     if on_tick is not None:
