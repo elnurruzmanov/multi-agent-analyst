@@ -61,12 +61,16 @@ nusxalang va o'zingizga — «Saved Messages» ga yuboring.
 
 ## 02 — Claude kalitini oling
 
-*console.anthropic.com, 10 daqiqa*
+*platform.claude.com, 10 daqiqa*
 
 **2.1. Hisob oching.**
-Brauzerda `console.anthropic.com` ni oching va ro'yxatdan o'ting. Bu
-**claude.ai dan alohida xizmat**: u yerdagi obunangiz bu yerda ishlamaydi,
-chunki bot API orqali ulanadi.
+Brauzerda `platform.claude.com` ni oching va ro'yxatdan o'ting
+(`console.anthropic.com` ham shu yerga olib keladi). Bu **claude.ai dan
+alohida xizmat**: u yerdagi obunangiz bu yerda ishlamaydi, chunki bot API
+orqali ulanadi.
+
+«How will you use the Claude API?» degan savol chiqsa — **Individual** ni
+tanlang.
 
 **2.2. Balansni to'ldiring.**
 **Billing** bo'limiga kiring, kartani ulang va hisobni to'ldiring. Sinash
@@ -180,7 +184,7 @@ qachon uxlamaydi: har bir xabarga darhol javob keladi.
 > ishonchsizroq — muhim ish uchun $7 ni to'lagan ma'qul.
 
 **5.2. Xarajatga ko'z-quloq bo'ling.**
-Birinchi hafta `console.anthropic.com → Usage` ni kuzating. Ko'p ketayotgan
+Birinchi hafta `platform.claude.com → Usage` ni kuzating. Ko'p ketayotgan
 bo'lsa, Render'da `CLAUDE_MODEL` ni `claude-sonnet-5` ga o'zgartirasiz.
 
 ---

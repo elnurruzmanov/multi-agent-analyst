@@ -30,7 +30,7 @@ Buyruqlar: `/start`, `/new` (suhbatni tozalash), `/model`, `/id`, `/help`.
 `/newbot` yozing, nom va username bering — u token beradi.
 
 **2. Anthropic kalitini oling.**
-[console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+[platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)
 da yangi API key yarating. Bu pullik: har bir savol-javob hisobdan pul yechadi,
 shuning uchun 3-qadamni o'tkazib yubormang.
 
