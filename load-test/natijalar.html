@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tahlil natijalari</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1a2233; --muted:#5b6472;
+    --navy:#1f3864; --line:#e2e7f0;
+    --green:#1e7b34; --amber:#b8860b; --red:#c0392b;
+    --greenbg:#e6f4ea; --amberbg:#fdf3e2; --redbg:#fdecea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f141c; --card:#1a212d; --ink:#e8ecf3; --muted:#9aa4b2;
+      --navy:#8fb0e8; --line:#2a3444;
+      --green:#5cc97a; --amber:#e0b64d; --red:#f0756a;
+      --greenbg:#16301f; --amberbg:#332a12; --redbg:#3a1f1c;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:16px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:22px;margin:8px 0 2px;color:var(--navy)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  h2{font-size:15px;margin:0 0 12px;color:var(--navy);text-transform:uppercase;letter-spacing:.03em}
+  .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .score{border-radius:12px;padding:12px;text-align:center}
+  .score .num{font-size:30px;font-weight:800;line-height:1}
+  .score .lbl{font-size:12px;margin-top:6px;color:var(--muted)}
+  .g{background:var(--greenbg)} .g .num{color:var(--green)}
+  .a{background:var(--amberbg)} .a .num{color:var(--amber)}
+  .r{background:var(--redbg)} .r .num{color:var(--red)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+  td.v{font-weight:700;text-align:right;white-space:nowrap}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700}
+  .pg{background:var(--greenbg);color:var(--green)}
+  .pa{background:var(--amberbg);color:var(--amber)}
+  .pr{background:var(--redbg);color:var(--red)}
+  ul{margin:6px 0 0;padding-left:20px}
+  li{margin-bottom:7px;font-size:14px}
+  li b{color:var(--ink)}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tahlil natijalari</h1>
+  <div class="sub">Google PageSpeed Insights (Lighthouse, mobil) · https://murojaat.byurokratiyasiz2030.uz/ · 2026-09-18, 18:12</div>
+
+  <div class="card">
+    <h2>Umumiy ballar</h2>
+    <div class="scores">
+      <div class="score a"><div class="num">61</div><div class="lbl">Tezlik (Performance)</div></div>
+      <div class="score g"><div class="num">95</div><div class="lbl">Accessibility</div></div>
+      <div class="score g"><div class="num">100</div><div class="lbl">Best Practices</div></div>
+      <div class="score a"><div class="num">83</div><div class="lbl">SEO</div></div>
+    </div>
+    <div class="note">Ball: 90–100 yashil (yaxshi) · 50–89 sariq (o‘rtacha) · 0–49 qizil (past)</div>
+  </div>
+
+  <div class="card">
+    <h2>Tezlik ko‘rsatkichlari (Core Web Vitals)</h2>
+    <table>
+      <tr><th>Ko‘rsatkich</th><th style="text-align:right">Qiymat</th><th style="text-align:right">Baho</th></tr>
+      <tr><td>First Contentful Paint (FCP)</td><td class="v">5.1 s</td><td class="v"><span class="pill pr">Past</span></td></tr>
+      <tr><td>Largest Contentful Paint (LCP)</td><td class="v">16.7 s</td><td class="v"><span class="pill pr">Juda past</span></td></tr>
+      <tr><td>Total Blocking Time (TBT)</td><td class="v">0 ms</td><td class="v"><span class="pill pg">A’lo</span></td></tr>
+      <tr><td>Cumulative Layout Shift (CLS)</td><td class="v">0.026</td><td class="v"><span class="pill pg">A’lo</span></td></tr>
+      <tr><td>Speed Index</td><td class="v">6.0 s</td><td class="v"><span class="pill pr">Past</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Aniqlangan kamchiliklar</h2>
+    <ul>
+      <li><b>Tezlik:</b> sahifa ~3.2 MB (asosan katta rasmlar). Rasmlarni optimallashtirib ~2.2 MB tejash mumkin.</li>
+      <li><b>Kod/kesh:</b> ortiqcha JavaScript (177 KiB) va CSS (40 KiB); render-blocking ~1.26 s; kesh siyosati samarasiz.</li>
+      <li><b>SEO:</b> meta-tavsif yo‘q; robots.txt’da 21 xato.</li>
+      <li><b>Accessibility:</b> ba’zi matn/fon kontrasti past; "main" belgisi yo‘q (kichik).</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Ustuvor tavsiyalar</h2>
+    <ul>
+      <li><span class="pill pr">Yuqori</span> &nbsp;Rasmlarni siqish/WebP + lazy-load (~2.2 MB)</li>
+      <li><span class="pill pr">Yuqori</span> &nbsp;Ortiqcha JS/CSS ni olib tashlash (~217 KiB)</li>
+      <li><span class="pill pr">Yuqori</span> &nbsp;Render-blocking resurslarni kamaytirish (~1.26 s)</li>
+      <li><span class="pill pa">O‘rta</span> &nbsp;Kesh siyosati; SEO: meta-tavsif, robots.txt</li>
+    </ul>
+    <div class="note">Bu — front-end (bir foydalanuvchi) tahlili. 400–500 foydalanuvchili to‘liq stress test alohida, ruxsat va monitoring bilan o‘tkaziladi.</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+📊 Salom! Sayt bo'yicha dastlabki tahlil natijalari:
+
+Bugun saytning front-end tahlilini (Google PageSpeed / Lighthouse, mobil rejim) o'tkazdim. Batafsil natijalarni Word faylida yubordim. Qisqacha:
+
+• Tezlik (Performance): 61/100 — o'rtacha. Asosiy muammo: sahifa juda og'ir (~3.2 MB, ko'p katta rasm), mobil internetda sekin ochiladi (LCP 16.7 s).
+• Maxsus imkoniyatlar (Accessibility): 95/100 ✅
+• Best Practices: 100/100 ✅
+• SEO: 83/100 — meta-tavsif yo'q, robots.txt'da 21 xato.
+
+Ustuvor tavsiya: rasmlarni siqish/WebP + ortiqcha JS/CSS'ni olib tashlash → ~2.4 MB tejaladi, sayt ancha tezlashadi.
+
+⚠️ Stress test (400–500 foydalanuvchi) haqida ochiq aytaman:
+Uni hali to'liq o'tkazmadim. Test rejasi va k6 skripti tayyor, lekin jonli saytga bir vaqtda 500 foydalanuvchi yuklama berishdan oldin quyidagilar kerak (aks holda xizmat uzilishi va javobgarlik xavfi bor):
+1) Testga rasmiy ruxsat;
+2) Iloji bo'lsa staging muhiti yoki kelishilgan vaqt (kam yuklama, mas. tunda);
+3) Server monitoringini ochib turadigan mas'ul (DevOps).
+
+Shular hal bo'lishi bilan testni bosqichma-bosqich o'tkazib, real yuklama natijalarini beraman. Reja va skript tayyor — faqat "yashil chiroq" kutyapman.
